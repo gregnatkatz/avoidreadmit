@@ -14,19 +14,19 @@ export default function Dashboard() {
   const { data: summary } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: dashboardApi.getSummary,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const { data: trend } = useQuery({
     queryKey: ['readmission-trend'],
     queryFn: dashboardApi.getReadmissionTrend,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const { data: impact } = useQuery({
     queryKey: ['context-impact'],
     queryFn: dashboardApi.getContextImpact,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   // Dynamic data from API - Decision outcomes distribution

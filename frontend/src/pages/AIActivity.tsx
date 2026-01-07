@@ -12,13 +12,13 @@ export default function AIActivity() {
   const { data: aiStatus } = useQuery({
     queryKey: ['ai-status', currentMonth],
     queryFn: aiApi.getStatus,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const { data: contextStats } = useQuery({
     queryKey: ['context-stats', currentMonth],
     queryFn: contextApi.getStats,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const { data: monthlyGrowth } = useQuery({
@@ -69,7 +69,7 @@ export default function AIActivity() {
         patterns: patternsByMonth[i]
       }))
     },
-    refetchInterval: 10000
+    refetchInterval: 600000
   })
 
   const runAnalysis = async () => {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Search, Filter, ChevronDown, ChevronRight, Brain, CheckCircle, XCircle, Clock, AlertTriangle, User, Heart, Pill, Car, Shield, Loader2, ThumbsUp, ThumbsDown, HelpCircle, FileText, Sparkles, Activity, Database, GitBranch, Zap } from 'lucide-react'
+import { Search, Filter, ChevronDown, ChevronRight, Brain, CheckCircle, XCircle, Clock, AlertTriangle, User, Heart, Pill, Car, Shield, Loader2, ThumbsUp, ThumbsDown, HelpCircle, FileText, Sparkles, Activity, Database, GitBranch, Zap, MessageSquare, Edit3, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { patientsApi, aiApi, Patient, DischargeReadinessAnalysis } from '../api/client'
 
@@ -80,23 +80,39 @@ function calculateRiskCategory(patient: Patient): RiskCategory {
   if (patient.los_days && patient.los_days > 10) riskFactors.push('extended_los')
   if (patient.principal_diagnosis?.toLowerCase().includes('heart failure')) riskFactors.push('chf')
   if (patient.principal_diagnosis?.toLowerCase().includes('copd')) riskFactors.push('copd')
+  if (patient.principal_diagnosis?.toLowerCase().includes('sepsis')) riskFactors.push('sepsis')
+  if (patient.principal_diagnosis?.toLowerCase().includes('pneumonia')) riskFactors.push('pneumonia')
+  if (patient.principal_diagnosis?.toLowerCase().includes('respiratory')) riskFactors.push('respiratory')
   
-  // Random factor for demo variety
-  const randomFactor = Math.random()
+  // Deterministic factor based on patient MRN hash for consistent demo variety
+  // This ensures the same patient always gets the same risk category
+  const mrnHash = patient.mrn.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const deterministicFactor = (mrnHash % 100) / 100
   
-  if (riskFactors.length >= 2 || randomFactor < 0.2) return 'high_risk'
-  if (riskFactors.length === 1 || randomFactor < 0.5) return 'moderate_risk'
+  if (riskFactors.length >= 2 || deterministicFactor < 0.25) return 'high_risk'
+  if (riskFactors.length === 1 || deterministicFactor < 0.55) return 'moderate_risk'
   return 'on_target'
 }
 
 // Generate discharge requirements based on industry standards
-function generateRequirements(): DischargeRequirement[] {
+// Helper function to generate deterministic pseudo-random value based on seed
+function seededRandom(seed: string, index: number): number {
+  const hash = seed.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0)
+  return ((hash * (index + 1) * 9301 + 49297) % 233280) / 233280
+}
+
+function generateRequirements(patientMrn: string = 'default'): DischargeRequirement[] {
+  // Use patient MRN to generate deterministic statuses
+  const getStatus = (index: number, threshold: number, altStatus: 'pending' | 'not_met' | 'na' = 'pending') => {
+    return seededRandom(patientMrn, index) > threshold ? 'met' : altStatus
+  }
+  
   return [
     {
       id: 'vitals',
       name: 'Vital Signs Stable (24h)',
       category: 'clinical',
-      status: Math.random() > 0.2 ? 'met' : 'pending',
+      status: getStatus(0, 0.2),
       details: 'BP, HR, O2 sat within normal limits for 24 hours',
       standard: 'CMS CoP 482.43',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0008']
@@ -105,7 +121,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'meds',
       name: 'Medication Reconciliation',
       category: 'clinical',
-      status: Math.random() > 0.3 ? 'met' : 'pending',
+      status: getStatus(1, 0.3),
       details: 'All medications reviewed and reconciled with home meds',
       standard: 'Joint Commission NPSG.03.06.01',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0007']
@@ -114,7 +130,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'followup',
       name: 'Follow-up Appointment (7 days)',
       category: 'clinical',
-      status: Math.random() > 0.25 ? 'met' : 'not_met',
+      status: getStatus(2, 0.25, 'not_met'),
       details: 'PCP and specialist appointments scheduled within 7 days',
       standard: 'CMS Quality Measure',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0009']
@@ -123,7 +139,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'caregiver_ed',
       name: 'Caregiver Teach-Back Education',
       category: 'social',
-      status: Math.random() > 0.3 ? 'met' : 'pending',
+      status: getStatus(3, 0.3),
       details: 'Caregiver demonstrates understanding of care instructions',
       standard: 'AHRQ IDEAL Discharge',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0001']
@@ -132,7 +148,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'caregiver_avail',
       name: 'Caregiver Availability (72h)',
       category: 'social',
-      status: Math.random() > 0.2 ? 'met' : 'not_met',
+      status: getStatus(4, 0.2, 'not_met'),
       details: 'Primary caregiver available for first 72 hours post-discharge',
       standard: 'AHRQ IDEAL Discharge',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0003']
@@ -141,7 +157,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'transport',
       name: 'Transportation Arranged',
       category: 'logistics',
-      status: Math.random() > 0.15 ? 'met' : 'pending',
+      status: getStatus(5, 0.15),
       details: 'Safe transport to home or facility confirmed',
       standard: 'Joint Commission PC.04.01.05',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0012']
@@ -150,7 +166,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'home_safety',
       name: 'Home Safety Assessment',
       category: 'social',
-      status: Math.random() > 0.35 ? 'met' : 'pending',
+      status: getStatus(6, 0.35),
       details: 'Home environment assessed for fall risks and accessibility',
       standard: 'CMS Home Health CoP',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0014']
@@ -159,7 +175,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'dme',
       name: 'DME Ordered (if needed)',
       category: 'logistics',
-      status: Math.random() > 0.4 ? 'met' : 'na',
+      status: getStatus(7, 0.4, 'na'),
       details: 'Durable medical equipment ordered and delivery scheduled',
       standard: 'CMS DME Requirements'
     },
@@ -167,7 +183,7 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'discharge_summary',
       name: 'Discharge Summary Complete',
       category: 'clinical',
-      status: Math.random() > 0.2 ? 'met' : 'pending',
+      status: getStatus(8, 0.2),
       details: 'Discharge summary documented with all required elements',
       standard: 'Joint Commission RC.02.04.01'
     },
@@ -175,12 +191,22 @@ function generateRequirements(): DischargeRequirement[] {
       id: 'patient_consent',
       name: 'Patient/Family Agreement',
       category: 'social',
-      status: Math.random() > 0.1 ? 'met' : 'pending',
+      status: getStatus(9, 0.1),
       details: 'Patient and family verbalize understanding and agreement',
       standard: 'CMS CoP 482.43(d)',
       relatedPattern: CONTEXT_GRAPH_PATTERNS['PAT-0007']
     }
   ]
+}
+
+// Case worker notes and override interface
+interface CaseWorkerNote {
+  mrn: string
+  note: string
+  override?: 'approve' | 'hold' | 'review' | null
+  overrideReason?: string
+  timestamp: Date
+  caseWorker: string
 }
 
 export default function Worklist() {
@@ -190,26 +216,61 @@ export default function Worklist() {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [analysisStep, setAnalysisStep] = useState<number>(0)
   const [processedPatients, setProcessedPatients] = useState<Record<string, 'approved' | 'denied' | 'review'>>({})
-  const analysisTriggeredRef = useRef<Set<string>>(new Set())
+    const analysisTriggeredRef = useRef<Set<string>>(new Set())
+    const patientCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  
+    // Handler to expand patient and scroll into view smoothly
+    const handleExpandPatient = (mrn: string, isCurrentlyExpanded: boolean) => {
+      const newExpandedMrn = isCurrentlyExpanded ? null : mrn
+      setExpandedPatient(newExpandedMrn)
+    
+      // Scroll the card into view after a short delay to allow expansion animation
+      if (newExpandedMrn) {
+        setTimeout(() => {
+          const cardElement = patientCardRefs.current[mrn]
+          if (cardElement) {
+            cardElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 100)
+      }
+    }
+  
+    // New state for filtering and notes
+  const [riskFilter, setRiskFilter] = useState<RiskCategory | 'all'>('all')
+  const [caseWorkerNotes, setCaseWorkerNotes] = useState<Record<string, CaseWorkerNote>>({})
+  const [editingNote, setEditingNote] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const [showOverride, setShowOverride] = useState<string | null>(null)
+  const [overrideSelection, setOverrideSelection] = useState<'approve' | 'hold' | 'review' | null>(null)
+  const [overrideReason, setOverrideReason] = useState('')
+  const [expandedRiskFactors, setExpandedRiskFactors] = useState<Record<string, boolean>>({})
   
   const { data: patients, isLoading } = useQuery({
     queryKey: ['worklist'],
     queryFn: patientsApi.getWorklist
   })
 
-  // Auto-trigger analysis when patient is expanded (background prefetch)
-  useEffect(() => {
-    if (expandedPatient && !analysisResults[expandedPatient] && !analyzingId) {
-      // Only trigger if we haven't already triggered for this patient
-      if (!analysisTriggeredRef.current.has(expandedPatient)) {
-        const patient = patients?.find((p: Patient) => p.mrn === expandedPatient)
-        if (patient) {
-          analysisTriggeredRef.current.add(expandedPatient)
-          analyzeDischargeReadiness.mutate(patient)
+    // Auto-trigger analysis when patient is expanded (background prefetch)
+    useEffect(() => {
+      if (expandedPatient && !analysisResults[expandedPatient] && !analyzingId) {
+        // Trigger analysis if we haven't already OR if previous attempt failed (not in ref anymore)
+        if (!analysisTriggeredRef.current.has(expandedPatient)) {
+          const patient = patients?.find((p: Patient) => p.mrn === expandedPatient)
+          if (patient) {
+            analysisTriggeredRef.current.add(expandedPatient)
+            analyzeDischargeReadiness.mutate(patient)
+          }
         }
       }
-    }
-  }, [expandedPatient, analysisResults, analyzingId, patients])
+    }, [expandedPatient, analysisResults, analyzingId, patients])
+  
+    // Allow manual re-analysis by clearing the ref when patient is collapsed
+    useEffect(() => {
+      if (!expandedPatient) {
+        // When no patient is expanded, we could optionally clear failed analyses
+        // This allows retry on next expansion
+      }
+    }, [expandedPatient])
 
   // Progress step animation during analysis - slower progression to match AI response time
   useEffect(() => {
@@ -293,21 +354,56 @@ export default function Worklist() {
       setAnalysisResults(prev => ({ ...prev, [data.mrn]: data.result }))
       setAnalyzingId(null)
     },
-    onError: (error) => {
-      console.error('Discharge readiness analysis failed:', error)
-      setAnalyzingId(null)
-    }
+        onError: (error, variables) => {
+          console.error('Discharge readiness analysis failed:', error)
+          // Clear the patient from triggered ref so user can retry
+          analysisTriggeredRef.current.delete(variables.mrn)
+          setAnalyzingId(null)
+        }
   })
 
   const handleAction = (mrn: string, action: 'approved' | 'denied' | 'review') => {
     setProcessedPatients(prev => ({ ...prev, [mrn]: action }))
   }
 
-  const filteredPatients = patients?.filter((p: Patient) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.mrn.toLowerCase().includes(search.toLowerCase()) ||
-    p.principal_diagnosis?.toLowerCase().includes(search.toLowerCase())
-  ) || []
+  // Save case worker note with audit trail
+  const saveNote = (mrn: string) => {
+    if (noteText.trim() || overrideSelection) {
+      setCaseWorkerNotes(prev => ({
+        ...prev,
+        [mrn]: {
+          mrn,
+          note: noteText.trim(),
+          override: overrideSelection,
+          overrideReason: overrideReason.trim(),
+          timestamp: new Date(),
+          caseWorker: 'Current User' // In production, get from auth context
+        }
+      }))
+    }
+    setEditingNote(null)
+    setNoteText('')
+    setShowOverride(null)
+    setOverrideSelection(null)
+    setOverrideReason('')
+  }
+
+  // Toggle risk factor expansion
+  const toggleRiskFactor = (mrn: string, index: number) => {
+    const key = `${mrn}-${index}`
+    setExpandedRiskFactors(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // Filter patients by search AND risk category
+  const filteredPatients = patients?.filter((p: Patient) => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.mrn.toLowerCase().includes(search.toLowerCase()) ||
+      p.principal_diagnosis?.toLowerCase().includes(search.toLowerCase())
+    
+    const matchesRiskFilter = riskFilter === 'all' || calculateRiskCategory(p) === riskFilter
+    
+    return matchesSearch && matchesRiskFilter
+  }) || []
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -353,37 +449,49 @@ export default function Worklist() {
         </div>
       </div>
 
-      {/* Risk Category Summary Cards */}
+      {/* Risk Category Summary Cards - Clickable for filtering */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="glass-card p-4 border-l-4 border-red-500">
+        <div 
+          className={`glass-card p-4 border-l-4 border-red-500 cursor-pointer transition-all hover:bg-red-500/10 ${riskFilter === 'high_risk' ? 'ring-2 ring-red-500 bg-red-500/10' : ''}`}
+          onClick={() => setRiskFilter(riskFilter === 'high_risk' ? 'all' : 'high_risk')}
+        >
           <div className="flex items-center gap-3">
             <div className="icon-box red-gradient"><AlertTriangle size={20} className="text-white" /></div>
             <div>
-              <p className="text-2xl font-bold text-red-400">{filteredPatients.filter((p: Patient) => calculateRiskCategory(p) === 'high_risk').length}</p>
+              <p className="text-2xl font-bold text-red-400">{patients?.filter((p: Patient) => calculateRiskCategory(p) === 'high_risk').length || 0}</p>
               <p className="text-xs text-gray-400">High Risk</p>
               <p className="text-xs text-red-400/70">Context Graph: PAT-0014 matches</p>
             </div>
           </div>
+          {riskFilter === 'high_risk' && <p className="text-xs text-red-400 mt-2 text-center">Click to clear filter</p>}
         </div>
-        <div className="glass-card p-4 border-l-4 border-yellow-500">
+        <div 
+          className={`glass-card p-4 border-l-4 border-yellow-500 cursor-pointer transition-all hover:bg-yellow-500/10 ${riskFilter === 'moderate_risk' ? 'ring-2 ring-yellow-500 bg-yellow-500/10' : ''}`}
+          onClick={() => setRiskFilter(riskFilter === 'moderate_risk' ? 'all' : 'moderate_risk')}
+        >
           <div className="flex items-center gap-3">
             <div className="icon-box yellow-gradient"><HelpCircle size={20} className="text-white" /></div>
             <div>
-              <p className="text-2xl font-bold text-yellow-400">{filteredPatients.filter((p: Patient) => calculateRiskCategory(p) === 'moderate_risk').length}</p>
+              <p className="text-2xl font-bold text-yellow-400">{patients?.filter((p: Patient) => calculateRiskCategory(p) === 'moderate_risk').length || 0}</p>
               <p className="text-xs text-gray-400">Moderate Risk</p>
               <p className="text-xs text-yellow-400/70">Needs closer review</p>
             </div>
           </div>
+          {riskFilter === 'moderate_risk' && <p className="text-xs text-yellow-400 mt-2 text-center">Click to clear filter</p>}
         </div>
-        <div className="glass-card p-4 border-l-4 border-green-500">
+        <div 
+          className={`glass-card p-4 border-l-4 border-green-500 cursor-pointer transition-all hover:bg-green-500/10 ${riskFilter === 'on_target' ? 'ring-2 ring-green-500 bg-green-500/10' : ''}`}
+          onClick={() => setRiskFilter(riskFilter === 'on_target' ? 'all' : 'on_target')}
+        >
           <div className="flex items-center gap-3">
             <div className="icon-box green-gradient"><CheckCircle size={20} className="text-white" /></div>
             <div>
-              <p className="text-2xl font-bold text-green-400">{filteredPatients.filter((p: Patient) => calculateRiskCategory(p) === 'on_target').length}</p>
+              <p className="text-2xl font-bold text-green-400">{patients?.filter((p: Patient) => calculateRiskCategory(p) === 'on_target').length || 0}</p>
               <p className="text-xs text-gray-400">On Target</p>
               <p className="text-xs text-green-400/70">Positive pattern matches</p>
             </div>
           </div>
+          {riskFilter === 'on_target' && <p className="text-xs text-green-400 mt-2 text-center">Click to clear filter</p>}
         </div>
         <div className="glass-card p-4 border-l-4 border-cyan-500">
           <div className="flex items-center gap-3">
@@ -396,6 +504,27 @@ export default function Worklist() {
           </div>
         </div>
       </div>
+      
+      {/* Active Filter Indicator */}
+      {riskFilter !== 'all' && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg border border-white/10">
+          <Filter size={14} className="text-cyan-400" />
+          <span className="text-sm text-gray-300">
+            Filtering by: <span className={`font-medium ${
+              riskFilter === 'high_risk' ? 'text-red-400' :
+              riskFilter === 'moderate_risk' ? 'text-yellow-400' : 'text-green-400'
+            }`}>
+              {riskFilter === 'high_risk' ? 'High Risk' : riskFilter === 'moderate_risk' ? 'Moderate Risk' : 'On Target'}
+            </span>
+          </span>
+          <button 
+            onClick={() => setRiskFilter('all')}
+            className="ml-auto text-gray-400 hover:text-white transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Patient List */}
       <div className="space-y-4">
@@ -408,17 +537,20 @@ export default function Worklist() {
           const processedStatus = processedPatients[patient.mrn]
           const riskCategory = calculateRiskCategory(patient)
           
-          return (
-            <div key={patient.mrn} className={`glass-card overflow-hidden ${processedStatus ? 'opacity-60' : ''} ${
-              riskCategory === 'high_risk' ? 'border-l-4 border-red-500' :
-              riskCategory === 'moderate_risk' ? 'border-l-4 border-yellow-500' :
-              'border-l-4 border-green-500'
-            }`}>
-              {/* Patient Header */}
-              <div 
-                className="p-4 cursor-pointer hover:bg-white/5 transition-colors flex items-center justify-between"
-                onClick={() => setExpandedPatient(isExpanded ? null : patient.mrn)}
-              >
+                    return (
+                      <div 
+                        key={patient.mrn} 
+                        ref={(el) => { patientCardRefs.current[patient.mrn] = el }}
+                        className={`glass-card overflow-hidden scroll-mt-4 ${processedStatus ? 'opacity-60' : ''} ${
+                        riskCategory === 'high_risk' ? 'border-l-4 border-red-500' :
+                        riskCategory === 'moderate_risk' ? 'border-l-4 border-yellow-500' :
+                        'border-l-4 border-green-500'
+                      }`}>
+                        {/* Patient Header */}
+                        <div 
+                          className="p-4 cursor-pointer hover:bg-white/5 transition-colors flex items-center justify-between"
+                          onClick={() => handleExpandPatient(patient.mrn, isExpanded)}
+                        >
                 <div className="flex items-center gap-4">
                   {isExpanded ? <ChevronDown size={20} className="text-cyan-400" /> : <ChevronRight size={20} className="text-gray-500" />}
                   <div>
@@ -601,82 +733,255 @@ export default function Worklist() {
                         </div>
                       </div>
 
-                      {/* Risk & Protective Factors - Verbose with Context Graph Details */}
-                      <div className="grid grid-cols-2 gap-4">
+                      {/* Risk & Protective Factors - Improved Readability with Collapsible Sections */}
+                      <div className="grid grid-cols-2 gap-6">
                         {analysis.verboseRiskFactors && analysis.verboseRiskFactors.length > 0 && (
-                          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                            <h4 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
+                          <div className="p-5 rounded-xl bg-red-500/10 border border-red-500/20">
+                            <h4 className="text-sm font-semibold text-red-400 mb-4 flex items-center gap-2">
                               <AlertTriangle size={14} />
                               Risk Factors Identified ({analysis.verboseRiskFactors.length})
                             </h4>
-                            <div className="space-y-3">
-                              {analysis.verboseRiskFactors.map((factor, i) => (
-                                <div key={i} className="p-3 rounded-lg bg-red-500/10 border border-red-500/10">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <AlertTriangle size={12} className="text-red-400" />
-                                    <span className="text-sm font-medium text-red-300">{factor.title}</span>
+                            <div className="space-y-4">
+                              {analysis.verboseRiskFactors.map((factor, i) => {
+                                const isExpanded = expandedRiskFactors[`${patient.mrn}-risk-${i}`]
+                                return (
+                                  <div key={i} className="rounded-lg bg-red-500/10 border border-red-500/10 overflow-hidden">
+                                    {/* Collapsible Header */}
+                                    <div 
+                                      className="p-3 cursor-pointer hover:bg-red-500/20 transition-colors flex items-start gap-2"
+                                      onClick={() => setExpandedRiskFactors(prev => ({ ...prev, [`${patient.mrn}-risk-${i}`]: !prev[`${patient.mrn}-risk-${i}`] }))}
+                                    >
+                                      {isExpanded ? <ChevronDown size={14} className="text-red-400 mt-0.5 flex-shrink-0" /> : <ChevronRight size={14} className="text-red-400 mt-0.5 flex-shrink-0" />}
+                                      <div className="flex-1">
+                                        <span className="text-sm font-medium text-red-300 leading-relaxed">{factor.title}</span>
+                                        {factor.pattern && (
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <Sparkles size={10} className="text-cyan-400" />
+                                            <span className="text-xs text-cyan-400">{factor.pattern.id}</span>
+                                            <span className="text-xs text-gray-500">|</span>
+                                            <span className="text-xs text-red-400">Success: {factor.pattern.successRate}%</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <div className="px-4 pb-4 pt-2 border-t border-red-500/20 space-y-3">
+                                        {factor.pattern && (
+                                          <div className="p-3 rounded bg-black/30 border border-red-500/20">
+                                            <p className="text-xs text-cyan-400 font-medium mb-2">Context Graph Pattern: {factor.pattern.id}</p>
+                                            <div className="flex gap-4 text-xs">
+                                              <span className={factor.pattern.lift < 0 ? 'text-red-400' : 'text-green-400'}>
+                                                Success: {factor.pattern.successRate}%
+                                              </span>
+                                              <span className={factor.pattern.lift < 0 ? 'text-red-400' : 'text-green-400'}>
+                                                Lift: {factor.pattern.lift > 0 ? '+' : ''}{factor.pattern.lift}%
+                                              </span>
+                                              <span className="text-gray-500">n={factor.pattern.sampleSize}</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        <div>
+                                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Analysis</p>
+                                          <p className="text-sm text-gray-300 leading-relaxed">{factor.reason}</p>
+                                        </div>
+                                        
+                                        <div>
+                                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Evidence</p>
+                                          <p className="text-sm text-gray-400 italic leading-relaxed">{factor.evidence}</p>
+                                        </div>
+                                        
+                                        {factor.recommendation && (
+                                          <div className="p-3 rounded bg-yellow-500/10 border border-yellow-500/20">
+                                            <p className="text-xs text-yellow-400 uppercase tracking-wide mb-1">Recommendation</p>
+                                            <p className="text-sm text-yellow-300 leading-relaxed">{factor.recommendation}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                  {factor.pattern && (
-                                    <div className="mb-2 p-2 rounded bg-black/20 border border-red-500/20">
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <Sparkles size={10} className="text-cyan-400" />
-                                        <span className="text-cyan-400 font-medium">Context Graph Pattern: {factor.pattern.id}</span>
-                                      </div>
-                                      <div className="flex gap-4 mt-1 text-xs">
-                                        <span className={factor.pattern.lift < 0 ? 'text-red-400' : 'text-green-400'}>
-                                          Success: {factor.pattern.successRate}%
-                                        </span>
-                                        <span className={factor.pattern.lift < 0 ? 'text-red-400' : 'text-green-400'}>
-                                          Lift: {factor.pattern.lift > 0 ? '+' : ''}{factor.pattern.lift}%
-                                        </span>
-                                        <span className="text-gray-500">n={factor.pattern.sampleSize}</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <p className="text-xs text-gray-300 mb-2">{factor.reason}</p>
-                                  <p className="text-xs text-gray-500 italic">{factor.evidence}</p>
-                                  {factor.recommendation && (
-                                    <div className="mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
-                                      <p className="text-xs text-yellow-400"><strong>Recommendation:</strong> {factor.recommendation}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         )}
                         {analysis.verboseProtectiveFactors && analysis.verboseProtectiveFactors.length > 0 && (
-                          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                            <h4 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+                          <div className="p-5 rounded-xl bg-green-500/10 border border-green-500/20">
+                            <h4 className="text-sm font-semibold text-green-400 mb-4 flex items-center gap-2">
                               <CheckCircle size={14} />
                               Protective Factors ({analysis.verboseProtectiveFactors.length})
                             </h4>
-                            <div className="space-y-3">
-                              {analysis.verboseProtectiveFactors.map((factor, i) => (
-                                <div key={i} className="p-3 rounded-lg bg-green-500/10 border border-green-500/10">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <CheckCircle size={12} className="text-green-400" />
-                                    <span className="text-sm font-medium text-green-300">{factor.title}</span>
-                                  </div>
-                                  {factor.pattern && (
-                                    <div className="mb-2 p-2 rounded bg-black/20 border border-green-500/20">
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <Sparkles size={10} className="text-cyan-400" />
-                                        <span className="text-cyan-400 font-medium">Context Graph Pattern: {factor.pattern.id}</span>
-                                      </div>
-                                      <div className="flex gap-4 mt-1 text-xs">
-                                        <span className="text-green-400">Success: {factor.pattern.successRate}%</span>
-                                        <span className="text-green-400">Lift: +{factor.pattern.lift}%</span>
-                                        <span className="text-gray-500">n={factor.pattern.sampleSize}</span>
+                            <div className="space-y-4">
+                              {analysis.verboseProtectiveFactors.map((factor, i) => {
+                                const isExpanded = expandedRiskFactors[`${patient.mrn}-protect-${i}`]
+                                return (
+                                  <div key={i} className="rounded-lg bg-green-500/10 border border-green-500/10 overflow-hidden">
+                                    {/* Collapsible Header */}
+                                    <div 
+                                      className="p-3 cursor-pointer hover:bg-green-500/20 transition-colors flex items-start gap-2"
+                                      onClick={() => setExpandedRiskFactors(prev => ({ ...prev, [`${patient.mrn}-protect-${i}`]: !prev[`${patient.mrn}-protect-${i}`] }))}
+                                    >
+                                      {isExpanded ? <ChevronDown size={14} className="text-green-400 mt-0.5 flex-shrink-0" /> : <ChevronRight size={14} className="text-green-400 mt-0.5 flex-shrink-0" />}
+                                      <div className="flex-1">
+                                        <span className="text-sm font-medium text-green-300 leading-relaxed">{factor.title}</span>
+                                        {factor.pattern && (
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <Sparkles size={10} className="text-cyan-400" />
+                                            <span className="text-xs text-cyan-400">{factor.pattern.id}</span>
+                                            <span className="text-xs text-gray-500">|</span>
+                                            <span className="text-xs text-green-400">Success: {factor.pattern.successRate}%</span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
-                                  )}
-                                  <p className="text-xs text-gray-300 mb-1">{factor.reason}</p>
-                                  <p className="text-xs text-gray-500 italic">{factor.evidence}</p>
-                                </div>
-                              ))}
+                                    
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <div className="px-4 pb-4 pt-2 border-t border-green-500/20 space-y-3">
+                                        {factor.pattern && (
+                                          <div className="p-3 rounded bg-black/30 border border-green-500/20">
+                                            <p className="text-xs text-cyan-400 font-medium mb-2">Context Graph Pattern: {factor.pattern.id}</p>
+                                            <div className="flex gap-4 text-xs">
+                                              <span className="text-green-400">Success: {factor.pattern.successRate}%</span>
+                                              <span className="text-green-400">Lift: +{factor.pattern.lift}%</span>
+                                              <span className="text-gray-500">n={factor.pattern.sampleSize}</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        <div>
+                                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Analysis</p>
+                                          <p className="text-sm text-gray-300 leading-relaxed">{factor.reason}</p>
+                                        </div>
+                                        
+                                        <div>
+                                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Evidence</p>
+                                          <p className="text-sm text-gray-400 italic leading-relaxed">{factor.evidence}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
+                        )}
+                      </div>
+
+                      {/* Case Worker Notes & Override Section */}
+                      <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+                        <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                          <MessageSquare size={14} className="text-cyan-400" />
+                          Case Worker Notes & Override
+                          <span className="text-xs text-gray-500 font-normal ml-2">(All entries audited per CMS CoP 482.43)</span>
+                        </h4>
+                        
+                        {/* Existing Note Display */}
+                        {caseWorkerNotes[patient.mrn] && (
+                          <div className="mb-4 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-cyan-400 font-medium">
+                                {caseWorkerNotes[patient.mrn].caseWorker} - {caseWorkerNotes[patient.mrn].timestamp.toLocaleString()}
+                              </span>
+                              {caseWorkerNotes[patient.mrn].override && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  caseWorkerNotes[patient.mrn].override === 'approve' ? 'bg-green-500/20 text-green-400' :
+                                  caseWorkerNotes[patient.mrn].override === 'hold' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-yellow-500/20 text-yellow-400'
+                                }`}>
+                                  Override: {caseWorkerNotes[patient.mrn].override === 'approve' ? 'Approve' : caseWorkerNotes[patient.mrn].override === 'hold' ? 'Hold' : 'Review'}
+                                </span>
+                              )}
+                            </div>
+                            {caseWorkerNotes[patient.mrn].note && (
+                              <p className="text-sm text-gray-300 mb-2">{caseWorkerNotes[patient.mrn].note}</p>
+                            )}
+                            {caseWorkerNotes[patient.mrn].overrideReason && (
+                              <p className="text-xs text-gray-400 italic">Override Reason: {caseWorkerNotes[patient.mrn].overrideReason}</p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Note Input */}
+                        {editingNote === patient.mrn ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder="Add case worker notes..."
+                              className="w-full bg-white/5 border border-white/20 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 resize-none"
+                              rows={3}
+                            />
+                            
+                            {/* Override Option */}
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs text-gray-400">Override AI Recommendation:</span>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setOverrideSelection(overrideSelection === 'approve' ? null : 'approve')}
+                                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                                    overrideSelection === 'approve' ? 'bg-green-500/30 text-green-400 ring-1 ring-green-500' : 'bg-white/5 text-gray-400 hover:bg-green-500/10'
+                                  }`}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => setOverrideSelection(overrideSelection === 'hold' ? null : 'hold')}
+                                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                                    overrideSelection === 'hold' ? 'bg-red-500/30 text-red-400 ring-1 ring-red-500' : 'bg-white/5 text-gray-400 hover:bg-red-500/10'
+                                  }`}
+                                >
+                                  Hold
+                                </button>
+                                <button
+                                  onClick={() => setOverrideSelection(overrideSelection === 'review' ? null : 'review')}
+                                  className={`px-3 py-1 rounded text-xs transition-colors ${
+                                    overrideSelection === 'review' ? 'bg-yellow-500/30 text-yellow-400 ring-1 ring-yellow-500' : 'bg-white/5 text-gray-400 hover:bg-yellow-500/10'
+                                  }`}
+                                >
+                                  Review
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Override Reason (required if override selected) */}
+                            {overrideSelection && (
+                              <input
+                                type="text"
+                                value={overrideReason}
+                                onChange={(e) => setOverrideReason(e.target.value)}
+                                placeholder="Override reason (required for audit)..."
+                                className="w-full bg-white/5 border border-white/20 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50"
+                              />
+                            )}
+                            
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => { setEditingNote(null); setNoteText(''); setOverrideSelection(null); setOverrideReason(''); }}
+                                className="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => saveNote(patient.mrn)}
+                                disabled={overrideSelection && !overrideReason.trim()}
+                                className="px-4 py-1.5 rounded-lg text-sm bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              >
+                                <FileText size={14} />
+                                Save Note
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingNote(patient.mrn); setNoteText(caseWorkerNotes[patient.mrn]?.note || ''); }}
+                            className="flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                          >
+                            <Edit3 size={14} />
+                            {caseWorkerNotes[patient.mrn] ? 'Edit Note' : 'Add Note'}
+                          </button>
                         )}
                       </div>
 
