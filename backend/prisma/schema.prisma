@@ -1,0 +1,389 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Epic EHR - Patients
+model Epic_Patient {
+  id            String   @id @default(uuid())
+  mrn           String   @unique
+  first_name    String
+  last_name     String
+  date_of_birth DateTime
+  gender        String
+  language      String?
+  address_street String?
+  address_city   String?
+  address_state  String?
+  address_zip    String?
+  phone_home     String?
+  phone_mobile   String?
+  insurance_type String?
+  created_at    DateTime @default(now())
+
+  encounters Epic_Encounter[]
+}
+
+// Epic EHR - Encounters
+model Epic_Encounter {
+  id                    String    @id @default(uuid())
+  encounter_number      String    @unique
+  patient_id            String
+  patient               Epic_Patient @relation(fields: [patient_id], references: [id])
+  encounter_type        String
+  admit_datetime        DateTime
+  discharge_datetime    DateTime?
+  discharge_disposition String?
+  hospital_service      String?
+  unit                  String?
+  attending_provider_id String?
+  los_days              Int?
+  readmission_flag      Boolean   @default(false)
+  readmission_days      Int?
+  created_at            DateTime  @default(now())
+
+  diagnoses   Epic_Diagnosis[]
+  vitals      Epic_Vitals[]
+  labs        Epic_Labs[]
+  medications Epic_Willow_Medication[]
+}
+
+// Epic EHR - Diagnoses
+model Epic_Diagnosis {
+  id              String   @id @default(uuid())
+  encounter_id    String
+  encounter       Epic_Encounter @relation(fields: [encounter_id], references: [id])
+  icd10_code      String
+  description     String
+  diagnosis_type  String
+  sequence_number Int
+  category        String?
+  created_at      DateTime @default(now())
+}
+
+// Epic EHR - Vitals
+model Epic_Vitals {
+  id                String   @id @default(uuid())
+  encounter_id      String
+  encounter         Epic_Encounter @relation(fields: [encounter_id], references: [id])
+  recorded_datetime DateTime
+  temperature       Float?
+  heart_rate        Int?
+  bp_systolic       Int?
+  bp_diastolic      Int?
+  oxygen_saturation Int?
+  weight_kg         Float?
+  created_at        DateTime @default(now())
+}
+
+// Epic Beaker - Labs
+model Epic_Labs {
+  id                 String   @id @default(uuid())
+  encounter_id       String
+  encounter          Epic_Encounter @relation(fields: [encounter_id], references: [id])
+  collected_datetime DateTime
+  lab_name           String
+  lab_code           String
+  result_value       String
+  result_numeric     Float?
+  unit               String?
+  abnormal_flag      String?
+  created_at         DateTime @default(now())
+}
+
+// Epic Willow - Medications
+model Epic_Willow_Medication {
+  id              String   @id @default(uuid())
+  encounter_id    String
+  encounter       Epic_Encounter @relation(fields: [encounter_id], references: [id])
+  medication_name String
+  generic_name    String?
+  dose            String?
+  route           String?
+  frequency       String?
+  order_status    String
+  med_class       String?
+  high_risk       Boolean  @default(false)
+  created_at      DateTime @default(now())
+}
+
+// Epic - Providers
+model Epic_Provider {
+  id            String  @id @default(uuid())
+  npi           String? @unique
+  first_name    String
+  last_name     String
+  credentials   String?
+  provider_type String
+  specialty     String?
+  department    String?
+  is_active     Boolean @default(true)
+}
+
+// Ensocare - Case Management
+model Ensocare_Case {
+  id                    String    @id @default(uuid())
+  case_number           String    @unique
+  encounter_id          String
+  patient_mrn           String
+  assigned_cm_id        String?
+  case_status           String
+  priority              String?
+  target_discharge_date DateTime?
+  barriers              String?
+  notes                 String?
+  created_at            DateTime  @default(now())
+
+  referrals         Ensocare_Referral[]
+  social_assessment Ensocare_SocialAssessment?
+}
+
+// Ensocare - Referrals
+model Ensocare_Referral {
+  id            String    @id @default(uuid())
+  case_id       String
+  case          Ensocare_Case @relation(fields: [case_id], references: [id])
+  referral_type String
+  facility_name String?
+  status        String
+  sent_datetime DateTime?
+  created_at    DateTime  @default(now())
+}
+
+// Ensocare - Social Assessment
+model Ensocare_SocialAssessment {
+  id                       String   @id @default(uuid())
+  case_id                  String   @unique
+  case                     Ensocare_Case @relation(fields: [case_id], references: [id])
+  living_situation         String
+  residence_type           String?
+  stairs_in_home           Boolean?
+  has_caregiver            Boolean
+  caregiver_name           String?
+  caregiver_relationship   String?
+  has_transportation       Boolean?
+  sdoh_food_insecurity     Boolean  @default(false)
+  sdoh_housing_instability Boolean  @default(false)
+  sdoh_transportation_needs Boolean @default(false)
+  adl_bathing              String?
+  adl_dressing             String?
+  adl_toileting            String?
+  cognitive_status         String?
+  assessed_datetime        DateTime
+}
+
+// Ambient Voice Transcripts
+model Ambient_Voice_Transcript {
+  id                String   @id @default(uuid())
+  encounter_id      String?
+  patient_mrn       String?
+  call_type         String
+  participants      String
+  start_datetime    DateTime
+  duration_seconds  Int?
+  transcript_text   String
+  extracted_context String
+  confidence_score  Float?
+  created_at        DateTime @default(now())
+}
+
+// Teams Messages
+model Teams_Message {
+  id                  String   @id @default(uuid())
+  channel_name        String
+  sender_name         String
+  message_text        String
+  sent_datetime       DateTime
+  mentioned_mrns      String?
+  is_decision_related Boolean  @default(false)
+  created_at          DateTime @default(now())
+}
+
+// DCG Clinical Snapshot
+model DCG_ClinicalSnapshot {
+  id                           String   @id @default(uuid())
+  age                          Int
+  gender                       String
+  principal_diagnosis_code     String
+  principal_diagnosis_desc     String
+  principal_diagnosis_category String
+  secondary_diagnoses          String
+  vitals_at_decision           String
+  labs_at_decision             String
+  medication_count             Int
+  high_risk_med_count          Int
+  adl_score                    Int?
+  mobility_status              String?
+  los_at_decision              Int
+  readmit_count_12m            Int      @default(0)
+  snapshot_datetime            DateTime
+
+  decision_trace DCG_DecisionTrace?
+}
+
+// DCG Social Snapshot
+model DCG_SocialSnapshot {
+  id                            String   @id @default(uuid())
+  living_situation              String
+  residence_type                String?
+  has_stairs                    Boolean?
+  insurance_type                String
+  has_caregiver                 Boolean
+  caregiver_relationship        String?
+  sdoh_flags                    String
+  caregiver_name                String?
+  caregiver_age                 Int?
+  caregiver_health_status       String?
+  caregiver_employment          String?
+  caregiver_medical_background  Boolean  @default(false)
+  caregiver_background_detail   String?
+  caregiver_proximity_minutes   Int?
+  caregiver_availability        String?
+  caregiver_stated_commitment   String?
+  caregiver_condition_familiarity String?
+  patient_stated_preference     String?
+  patient_concerns              String
+  patient_fears                 String
+  barriers_from_conversations   String
+  positive_factors              String
+  ambient_transcript_ids        String
+  snapshot_datetime             DateTime
+
+  decision_trace DCG_DecisionTrace?
+}
+
+// DCG Decision Trace
+model DCG_DecisionTrace {
+  id                   String   @id @default(uuid())
+  trace_number         String   @unique
+  patient_mrn          String
+  encounter_id         String
+  decision_type        String
+  decision_value       String
+  decision_datetime    DateTime
+  decision_maker_id    String
+  decision_maker_name  String
+  clinical_snapshot_id String   @unique
+  clinical_snapshot    DCG_ClinicalSnapshot @relation(fields: [clinical_snapshot_id], references: [id])
+  social_snapshot_id   String   @unique
+  social_snapshot      DCG_SocialSnapshot @relation(fields: [social_snapshot_id], references: [id])
+  policy_id            String?
+  policy_recommendation String?
+  followed_policy      Boolean
+  exception_type       String?
+  rationale            String?
+  evidence_cited       String?
+  concerns             String?
+  mitigations          String?
+  cited_precedent_ids  String
+  data_month           Int
+  created_at           DateTime @default(now())
+
+  outcome   DCG_Outcome?
+  cited_by  DCG_ContextMatch[] @relation("CitedDecision")
+  matches   DCG_ContextMatch[] @relation("MatchingDecision")
+}
+
+// DCG Outcome
+model DCG_Outcome {
+  id                  String    @id @default(uuid())
+  trace_id            String    @unique
+  trace               DCG_DecisionTrace @relation(fields: [trace_id], references: [id])
+  readmission_30d     Boolean   @default(false)
+  readmission_date    DateTime?
+  readmission_reason  String?
+  ed_visit_30d        Boolean   @default(false)
+  death_30d           Boolean   @default(false)
+  outcome_success     Boolean
+  root_cause_category String?
+  root_cause_detail   String?
+  context_factors     String?
+  assessed_at         DateTime?
+  data_month          Int
+  created_at          DateTime  @default(now())
+}
+
+// DCG Context Match
+model DCG_ContextMatch {
+  id                      String   @id @default(uuid())
+  searching_trace_id      String
+  searching_trace         DCG_DecisionTrace @relation("MatchingDecision", fields: [searching_trace_id], references: [id])
+  matched_trace_id        String
+  matched_trace           DCG_DecisionTrace @relation("CitedDecision", fields: [matched_trace_id], references: [id])
+  context_match_score     Float
+  context_factors_matched String
+  was_cited               Boolean  @default(false)
+  user_notes              String?
+  outcomes_aligned        Boolean?
+  data_month              Int
+  created_at              DateTime @default(now())
+}
+
+// DCG Context Pattern
+model DCG_ContextPattern {
+  id                      String   @id @default(uuid())
+  pattern_number          String   @unique
+  title                   String
+  description             String
+  context_criteria        String
+  supporting_trace_ids    String
+  sample_size             Int
+  success_count           Int
+  success_rate            Float
+  baseline_rate           Float?
+  lift_vs_baseline        Float?
+  p_value                 Float?
+  statistically_significant Boolean @default(false)
+  status                  String
+  data_month              Int
+  created_at              DateTime @default(now())
+}
+
+// DCG Monthly Metrics
+model DCG_MonthlyMetrics {
+  id                              String  @id @default(uuid())
+  month_number                    Int     @unique
+  month_label                     String
+  total_decisions                 Int
+  decisions_with_context_match    Int
+  total_with_outcomes             Int
+  successes                       Int
+  readmissions                    Int
+  readmission_rate                Float
+  success_rate                    Float
+  with_rich_context_success_rate  Float
+  without_rich_context_success_rate Float
+  context_lift                    Float
+  policy_followed_count           Int
+  policy_followed_success         Float
+  exception_taken_count           Int
+  exception_taken_success         Float
+  active_patterns                 Int
+  new_patterns                    Int
+  cost_per_readmission            Float   @default(15200)
+  readmissions_avoided            Int
+  savings_this_month              Float
+  cumulative_savings              Float
+}
+
+// Demo State
+model Demo_State {
+  id            String   @id @default("singleton")
+  current_month Int      @default(1)
+  updated_at    DateTime @updatedAt
+}
+
+// Demo Changes
+model Demo_Change {
+  id          String   @id @default(uuid())
+  entity_type String
+  entity_id   String
+  change_type String
+  month_added Int
+  summary     String?
+  created_at  DateTime @default(now())
+}
