@@ -1,13 +1,16 @@
 // Large Hospital Configuration - 3,000 discharges/month
 export const MONTHLY_DECISIONS = 3000;
-export const TOTAL_MONTHS = 6;
-export const TOTAL_DECISIONS = MONTHLY_DECISIONS * TOTAL_MONTHS; // 18,000
+export const TOTAL_MONTHS = 9;
+export const TOTAL_DECISIONS = MONTHLY_DECISIONS * TOTAL_MONTHS; // 27,000
 
 // Decision traces with rich context (100+ every 3 months)
 export const RICH_CONTEXT_PER_QUARTER = 150;
 
-// Month labels (July - December 2025)
+// Month labels (April - December 2025) - 9 months total
 export const MONTH_LABELS = [
+  'April 2025',
+  'May 2025',
+  'June 2025',
   'July 2025',
   'August 2025',
   'September 2025',

@@ -1,8 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { FileCheck, CheckCircle, XCircle, ChevronDown, ChevronRight, User, Stethoscope, Heart } from 'lucide-react'
-import { decisionsApi } from '../api/client'
+import { FileCheck, CheckCircle, XCircle, ChevronDown, ChevronRight, User, Stethoscope, Heart, Brain, AlertTriangle, Lightbulb, Loader2 } from 'lucide-react'
+import { decisionsApi, aiApi } from '../api/client'
 import { useTimelineStore, getMonthLabel } from '../store/timeline'
+
+interface ReadmissionAnalysis {
+  rootCause: 'new_ailment' | 'existing_worsened' | 'care_gap' | 'social_factors'
+  rootCauseDescription: string
+  contributingFactors: string[]
+  preventionInsights: string[]
+  suggestedPattern: {
+    title: string
+    criteria: string[]
+    expectedLift: number
+  } | null
+}
 
 interface Decision {
   id: string
@@ -32,10 +44,30 @@ interface Decision {
 export default function Decisions() {
   const { currentMonth } = useTimelineStore()
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [analysisResults, setAnalysisResults] = useState<Record<string, ReadmissionAnalysis>>({})
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   
   const { data: decisions, isLoading } = useQuery({
     queryKey: ['decisions', currentMonth],
     queryFn: decisionsApi.getDecisions
+  })
+
+  const analyzeReadmission = useMutation({
+    mutationFn: async (decisionId: string) => {
+      setAnalyzingId(decisionId)
+      const response = await aiApi.analyzeReadmission(decisionId)
+      return { decisionId, analysis: response }
+    },
+    onSuccess: (data) => {
+      setAnalysisResults(prev => ({
+        ...prev,
+        [data.decisionId]: data.analysis
+      }))
+      setAnalyzingId(null)
+    },
+    onError: () => {
+      setAnalyzingId(null)
+    }
   })
 
   const decisionList = decisions || []

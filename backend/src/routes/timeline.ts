@@ -13,7 +13,7 @@ router.get('/state', async (_req, res) => {
         data: { id: 'singleton', current_month: 1 }
       });
     }
-    res.json({ currentMonth: state.current_month, totalMonths: 6 });
+    res.json({ currentMonth: state.current_month, totalMonths: 9 });
   } catch (error) {
     console.error('Error getting timeline state:', error);
     res.status(500).json({ error: 'Failed to get timeline state' });
@@ -25,7 +25,7 @@ router.post('/advance', async (_req, res) => {
     const state = await prisma.demo_State.findUnique({ where: { id: 'singleton' } });
     const currentMonth = state?.current_month || 1;
 
-    if (currentMonth >= 6) {
+    if (currentMonth >= 9) {
       return res.status(400).json({ error: 'Already at final month' });
     }
 
@@ -36,7 +36,7 @@ router.post('/advance', async (_req, res) => {
     });
 
     trackTimelineAdvanced(currentMonth, newMonth);
-    res.json({ currentMonth: newMonth, totalMonths: 6 });
+    res.json({ currentMonth: newMonth, totalMonths: 9 });
   } catch (error) {
     console.error('Error advancing timeline:', error);
     res.status(500).json({ error: 'Failed to advance timeline' });
@@ -46,7 +46,7 @@ router.post('/advance', async (_req, res) => {
 router.post('/goto', async (req, res) => {
   try {
     const { month } = req.body;
-    if (month < 1 || month > 6) {
+    if (month < 1 || month > 9) {
       return res.status(400).json({ error: 'Invalid month' });
     }
 
@@ -59,7 +59,7 @@ router.post('/goto', async (req, res) => {
     });
 
     trackTimelineAdvanced(currentMonth, month);
-    res.json({ currentMonth: month, totalMonths: 6 });
+    res.json({ currentMonth: month, totalMonths: 9 });
   } catch (error) {
     console.error('Error going to month:', error);
     res.status(500).json({ error: 'Failed to go to month' });
@@ -74,7 +74,7 @@ router.post('/reset', async (_req, res) => {
     });
 
     trackTimelineAdvanced(0, 1);
-    res.json({ currentMonth: 1, totalMonths: 6 });
+    res.json({ currentMonth: 1, totalMonths: 9 });
   } catch (error) {
     console.error('Error resetting timeline:', error);
     res.status(500).json({ error: 'Failed to reset timeline' });

@@ -24,37 +24,49 @@ export default function AIActivity() {
   const { data: monthlyGrowth } = useQuery({
     queryKey: ['monthly-growth'],
     queryFn: async () => {
-      // Fetch growth data for all 6 months
+      // Fetch growth data for all 9 months (April - December 2025)
       const months = [
-        { month: 1, label: 'July 2025' },
-        { month: 2, label: 'August 2025' },
-        { month: 3, label: 'September 2025' },
-        { month: 4, label: 'October 2025' },
-        { month: 5, label: 'November 2025' },
-        { month: 6, label: 'December 2025' }
+        { month: 1, label: 'April 2025' },
+        { month: 2, label: 'May 2025' },
+        { month: 3, label: 'June 2025' },
+        { month: 4, label: 'July 2025' },
+        { month: 5, label: 'August 2025' },
+        { month: 6, label: 'September 2025' },
+        { month: 7, label: 'October 2025' },
+        { month: 8, label: 'November 2025' },
+        { month: 9, label: 'December 2025' }
       ]
       
-      // Calculate cumulative data for each month based on sporadic growth pattern
-      const baseDecisions = [38, 87, 156, 142, 312, 478] // Sporadic pattern from seed
-      const cumulativeDecisions = baseDecisions.reduce((acc: number[], val, i) => {
-        acc.push(i === 0 ? val * 50 : acc[i-1] + val * 50)
+      // Calculate cumulative data for each month based on realistic growth pattern with anomalies
+      // Monthly decisions: ~3000/month with realistic variations
+      const monthlyDecisions = [2847, 2923, 3012, 2956, 3089, 2934, 3156, 2876, 2791]
+      const cumulativeDecisions = monthlyDecisions.reduce((acc: number[], val, i) => {
+        acc.push(i === 0 ? val : acc[i-1] + val)
         return acc
       }, [] as number[])
       
-      // Pattern discovery progression:
-      // Month 1-2: 0 patterns (not enough data)
-      // Month 3: 2 patterns (first discoveries)
-      // Month 4: 5 patterns (2 + 3 new)
-      // Month 5: 9 patterns (5 + 4 new - breakthrough month)
-      // Month 6: 12 patterns (9 + 3 new)
-      const patternsByMonth = [0, 0, 2, 5, 9, 12]
+      // Context matches with realistic odd numbers from seed data
+      const matchesByMonth = [23, 41, 49, 83, 163, 138, 319, 467, 612]
+      const cumulativeMatches = matchesByMonth.reduce((acc: number[], val, i) => {
+        acc.push(i === 0 ? val : acc[i-1] + val)
+        return acc
+      }, [] as number[])
+      
+      // Pattern discovery progression (realistic - patterns only discovered after month 4):
+      // Month 1-4: 0 patterns (building baseline data)
+      // Month 5: 2 patterns (first discoveries)
+      // Month 6: 5 patterns (2 + 3 new)
+      // Month 7: 9 patterns (5 + 4 new - breakthrough month)
+      // Month 8: 12 patterns (9 + 3 new)
+      // Month 9: 15 patterns (12 + 3 new)
+      const patternsByMonth = [0, 0, 0, 0, 2, 5, 9, 12, 15]
       
       return months.map((m, i) => ({
         month: m.month,
         label: m.label,
         decisions: cumulativeDecisions[i] || 0,
-        matches: Math.floor((cumulativeDecisions[i] || 0) * (0.02 + i * 0.015)), // Growing match rate
-        patterns: patternsByMonth[i] // Realistic pattern discovery progression
+        matches: cumulativeMatches[i] || 0,
+        patterns: patternsByMonth[i]
       }))
     },
     refetchInterval: 10000
@@ -224,7 +236,7 @@ export default function AIActivity() {
       {/* Context Graph Growth Over Time - Month by Month */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Context Graph Growth Over Time</h3>
-        <div className="grid grid-cols-6 gap-4">
+        <div className="grid grid-cols-9 gap-3">
           {monthlyGrowth?.map((month) => (
             <div 
               key={month.month} 

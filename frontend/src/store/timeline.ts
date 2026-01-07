@@ -12,6 +12,9 @@ interface TimelineStore {
 }
 
 const MONTH_LABELS = [
+  'April 2025',
+  'May 2025',
+  'June 2025',
   'July 2025',
   'August 2025',
   'September 2025',
@@ -22,7 +25,7 @@ const MONTH_LABELS = [
 
 export const useTimelineStore = create<TimelineStore>((set) => ({
   currentMonth: 1,
-  totalMonths: 6,
+  totalMonths: 9,
   isLoading: false,
 
   fetchState: async () => {
