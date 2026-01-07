@@ -3,13 +3,10 @@ import { CheckCircle, XCircle, User, Heart, Home, Clock } from 'lucide-react'
 import { decisionsApi } from '../api/client'
 
 export default function Compare() {
-  const { data, isLoading } = useQuery({
+  const { isLoading } = useQuery({
     queryKey: ['compare', 'DCG-MARIA-001', 'DCG-ROBERT-001'],
     queryFn: () => decisionsApi.compare('DCG-MARIA-001', 'DCG-ROBERT-001')
   })
-
-  const maria = data?.decision1
-  const robert = data?.decision2
 
   if (isLoading) {
     return (
