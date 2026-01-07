@@ -1,10 +1,14 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// Use relative URL for API calls - Vite proxy will forward to backend
+// In production, set VITE_API_URL to the full backend URL
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 
+    'Content-Type': 'application/json'
+  }
 })
 
 export interface DashboardSummary {

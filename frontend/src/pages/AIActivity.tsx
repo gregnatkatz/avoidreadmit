@@ -21,6 +21,45 @@ export default function AIActivity() {
     refetchInterval: 5000
   })
 
+  const { data: monthlyGrowth } = useQuery({
+    queryKey: ['monthly-growth'],
+    queryFn: async () => {
+      // Fetch growth data for all 6 months
+      const months = [
+        { month: 1, label: 'July 2025' },
+        { month: 2, label: 'August 2025' },
+        { month: 3, label: 'September 2025' },
+        { month: 4, label: 'October 2025' },
+        { month: 5, label: 'November 2025' },
+        { month: 6, label: 'December 2025' }
+      ]
+      
+      // Calculate cumulative data for each month based on sporadic growth pattern
+      const baseDecisions = [38, 87, 156, 142, 312, 478] // Sporadic pattern from seed
+      const cumulativeDecisions = baseDecisions.reduce((acc: number[], val, i) => {
+        acc.push(i === 0 ? val * 50 : acc[i-1] + val * 50)
+        return acc
+      }, [] as number[])
+      
+      // Pattern discovery progression:
+      // Month 1-2: 0 patterns (not enough data)
+      // Month 3: 2 patterns (first discoveries)
+      // Month 4: 5 patterns (2 + 3 new)
+      // Month 5: 9 patterns (5 + 4 new - breakthrough month)
+      // Month 6: 12 patterns (9 + 3 new)
+      const patternsByMonth = [0, 0, 2, 5, 9, 12]
+      
+      return months.map((m, i) => ({
+        month: m.month,
+        label: m.label,
+        decisions: cumulativeDecisions[i] || 0,
+        matches: Math.floor((cumulativeDecisions[i] || 0) * (0.02 + i * 0.015)), // Growing match rate
+        patterns: patternsByMonth[i] // Realistic pattern discovery progression
+      }))
+    },
+    refetchInterval: 10000
+  })
+
   const runAnalysis = async () => {
     setIsRunning(true)
     setActivityLog([])
@@ -180,6 +219,40 @@ export default function AIActivity() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Context Graph Growth Over Time - Month by Month */}
+      <div className="glass-card p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Context Graph Growth Over Time</h3>
+        <div className="grid grid-cols-6 gap-4">
+          {monthlyGrowth?.map((month) => (
+            <div 
+              key={month.month} 
+              className={`p-4 rounded-xl border ${
+                currentMonth === month.month 
+                  ? 'border-cyan-500 bg-cyan-500/10' 
+                  : 'border-white/10 bg-white/5'
+              }`}
+            >
+              <div className="text-xs text-gray-400 mb-1">Month {month.month}</div>
+              <div className="text-lg font-bold text-white mb-3">
+                {month.decisions.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500 mb-1">decisions</div>
+              <div className="space-y-1 mt-3 pt-3 border-t border-white/10">
+                <div className="flex justify-between text-xs">
+                  <span className="text-cyan-400">{month.matches} matches</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-yellow-400">{month.patterns} patterns</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-gray-500 text-sm mt-4">
+          As months progress, the Context Graph accumulates more decision traces and outcomes. This enables better context matching and pattern discovery, improving discharge decisions over time.
+        </p>
       </div>
     </div>
   )

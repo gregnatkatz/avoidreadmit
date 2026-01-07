@@ -5,14 +5,15 @@ import { DEMO_PATIENTS, MONTHLY_DECISIONS, DISPOSITIONS, RICH_CONTEXT_PER_QUARTE
 export async function seedBulkDecisions(prisma: PrismaClient) {
   const patients = await prisma.epic_Patient.findMany();
   
-  // Monthly progression of rich context adoption
+  // Monthly progression of rich context adoption - realistic/sporadic growth
+  // Real-world adoption doesn't grow linearly - some months have breakthroughs, others plateau or dip
   const richContextByMonth = [
-    Math.floor(RICH_CONTEXT_PER_QUARTER * 0.3),  // Month 1: 45 (baseline)
-    Math.floor(RICH_CONTEXT_PER_QUARTER * 0.5),  // Month 2: 75
-    RICH_CONTEXT_PER_QUARTER,                     // Month 3: 150 (first quarter complete)
-    Math.floor(RICH_CONTEXT_PER_QUARTER * 1.2),  // Month 4: 180
-    Math.floor(RICH_CONTEXT_PER_QUARTER * 1.4),  // Month 5: 210
-    RICH_CONTEXT_PER_QUARTER * 2                  // Month 6: 300 (second quarter complete)
+    38,   // Month 1: Initial baseline - just starting, team learning
+    87,   // Month 2: Slow growth as team learns system
+    156,  // Month 3: First patterns discovered - big jump!
+    142,  // Month 4: Slight dip - holiday staffing, some skepticism
+    312,  // Month 5: Major breakthrough - new pattern + training initiative
+    478   // Month 6: Sustained growth, system maturity
   ];
 
   // Readmission rates improving over time
@@ -175,7 +176,16 @@ export async function seedBulkDecisions(prisma: PrismaClient) {
 }
 
 async function seedPatterns(prisma: PrismaClient) {
+  // Realistic pattern discovery progression:
+  // Month 1-2: No patterns yet (not enough data)
+  // Month 3: First 2 patterns discovered (initial insights)
+  // Month 4: 3 more patterns (AI learning accelerates)
+  // Month 5: 4 more patterns (breakthrough month)
+  // Month 6: 3 more patterns (sustained discovery)
+  // Total: 12 patterns by end of month 6
+  
   const patterns = [
+    // Month 3 - First discoveries (2 patterns)
     {
       pattern_number: 'PAT-0001',
       title: 'Medical Background Caregiver Success',
@@ -208,6 +218,7 @@ async function seedPatterns(prisma: PrismaClient) {
       status: 'validated',
       data_month: 3
     },
+    // Month 4 - Learning accelerates (3 patterns)
     {
       pattern_number: 'PAT-0003',
       title: 'Full-Time Availability Pattern',
@@ -226,6 +237,39 @@ async function seedPatterns(prisma: PrismaClient) {
     },
     {
       pattern_number: 'PAT-0004',
+      title: 'Condition Familiarity Impact',
+      description: 'Caregivers familiar with patient condition show 18% better outcomes',
+      context_criteria: JSON.stringify(['caregiver_condition_familiarity = High']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 290,
+      success_count: 240,
+      success_rate: 0.83,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.18,
+      p_value: 0.002,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 4
+    },
+    {
+      pattern_number: 'PAT-0005',
+      title: 'Retired Caregiver Advantage',
+      description: 'Retired caregivers correlate with 15% higher success due to availability',
+      context_criteria: JSON.stringify(['caregiver_employment = Retired']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 340,
+      success_count: 272,
+      success_rate: 0.80,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.15,
+      p_value: 0.008,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 4
+    },
+    // Month 5 - Breakthrough month (4 patterns)
+    {
+      pattern_number: 'PAT-0006',
       title: 'Combined Context Factors',
       description: 'Medical background + close proximity + full-time availability = 92% success rate',
       context_criteria: JSON.stringify(['caregiver_medical_background = true', 'caregiver_proximity_minutes <= 10', 'caregiver_availability = full-time']),
@@ -239,9 +283,106 @@ async function seedPatterns(prisma: PrismaClient) {
       statistically_significant: true,
       status: 'validated',
       data_month: 5
+    },
+    {
+      pattern_number: 'PAT-0007',
+      title: 'Patient Preference Alignment',
+      description: 'When discharge aligns with patient stated preference, success improves 20%',
+      context_criteria: JSON.stringify(['patient_stated_preference = Prefers home', 'decision_value = Home']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 410,
+      success_count: 348,
+      success_rate: 0.85,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.20,
+      p_value: 0.001,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 5
+    },
+    {
+      pattern_number: 'PAT-0008',
+      title: 'Low Readmission History Success',
+      description: 'Patients with 0 readmissions in past 12 months show 23% better outcomes',
+      context_criteria: JSON.stringify(['readmit_count_12m = 0']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 620,
+      success_count: 546,
+      success_rate: 0.88,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.23,
+      p_value: 0.0003,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 5
+    },
+    {
+      pattern_number: 'PAT-0009',
+      title: 'Spouse Caregiver Commitment',
+      description: 'Spouse caregivers show 16% higher success than other relationships',
+      context_criteria: JSON.stringify(['caregiver_relationship = Spouse']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 380,
+      success_count: 308,
+      success_rate: 0.81,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.16,
+      p_value: 0.004,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 5
+    },
+    // Month 6 - Sustained discovery (3 patterns)
+    {
+      pattern_number: 'PAT-0010',
+      title: 'Short Length of Stay Success',
+      description: 'Patients with LOS under 5 days show 14% better home discharge outcomes',
+      context_criteria: JSON.stringify(['los_at_decision < 5']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 480,
+      success_count: 379,
+      success_rate: 0.79,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.14,
+      p_value: 0.01,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 6
+    },
+    {
+      pattern_number: 'PAT-0011',
+      title: 'Multi-Factor High Confidence',
+      description: 'Proximity + availability + familiarity combination yields 89% success',
+      context_criteria: JSON.stringify(['caregiver_proximity_minutes <= 15', 'caregiver_availability = full-time', 'caregiver_condition_familiarity = High']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 220,
+      success_count: 196,
+      success_rate: 0.89,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.24,
+      p_value: 0.0002,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 6
+    },
+    {
+      pattern_number: 'PAT-0012',
+      title: 'No Transportation Barriers',
+      description: 'Patients without transportation SDOH flags show 12% better outcomes',
+      context_criteria: JSON.stringify(['sdoh_transport = false']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 550,
+      success_count: 424,
+      success_rate: 0.77,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.12,
+      p_value: 0.015,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 6
     }
   ];
 
   await prisma.dCG_ContextPattern.createMany({ data: patterns });
-  console.log('Created context patterns');
+  console.log('Created 12 context patterns across months 3-6');
 }

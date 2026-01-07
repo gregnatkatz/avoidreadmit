@@ -1,20 +1,29 @@
-import appInsights from 'applicationinsights';
+// Azure Monitor OpenTelemetry with Gen AI instrumentation
+// Must be set up BEFORE importing OpenAI
+import { useAzureMonitor, AzureMonitorOpenTelemetryOptions } from '@azure/monitor-opentelemetry';
 
-appInsights.setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING || '')
-  .setAutoDependencyCorrelation(true)
-  .setAutoCollectRequests(true)
-  .setAutoCollectPerformance(true, true)
-  .setAutoCollectExceptions(true)
-  .setAutoCollectDependencies(true)
-  .setAutoCollectConsole(true, true)
-  .setUseDiskRetryCaching(true)
-  .setSendLiveMetrics(true)
-  .start();
-
-const client = appInsights.defaultClient;
-if (client) {
-  client.context.tags[client.context.keys.cloudRole] = 'dcg-backend';
+// Get connection string and log it for debugging
+const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING || '';
+console.log(`[Azure Monitor] Connection string present: ${connectionString.length > 0 ? 'YES' : 'NO'}`);
+if (connectionString.length > 0) {
+  console.log(`[Azure Monitor] Connection string starts with: ${connectionString.substring(0, 50)}...`);
 }
+
+// Configure Azure Monitor with OpenTelemetry
+const options: AzureMonitorOpenTelemetryOptions = {
+  azureMonitorExporterOptions: {
+    connectionString: connectionString
+  },
+  instrumentationOptions: {
+    azureSdk: { enabled: true },
+    http: { enabled: true },
+  }
+};
+
+// Start Azure Monitor with OpenTelemetry
+console.log('[Azure Monitor] Initializing Azure Monitor OpenTelemetry...');
+useAzureMonitor(options);
+console.log('[Azure Monitor] Azure Monitor OpenTelemetry initialized successfully');
 
 import express from 'express';
 import cors from 'cors';
