@@ -7,17 +7,22 @@ export async function seedBulkDecisions(prisma: PrismaClient) {
   
   // Monthly progression of rich context adoption - realistic/sporadic growth
   // Real-world adoption doesn't grow linearly - some months have breakthroughs, others plateau or dip
+  // 9 months: April - December 2025
+  // Using odd numbers and realistic variations to match metrics
   const richContextByMonth = [
-    38,   // Month 1: Initial baseline - just starting, team learning
-    87,   // Month 2: Slow growth as team learns system
-    156,  // Month 3: First patterns discovered - big jump!
-    142,  // Month 4: Slight dip - holiday staffing, some skepticism
-    312,  // Month 5: Major breakthrough - new pattern + training initiative
-    478   // Month 6: Sustained growth, system maturity
+    23,   // Month 1 (April): Pre-launch baseline - minimal adoption
+    41,   // Month 2 (May): Initial rollout - team learning
+    49,   // Month 3 (June): Slow growth, some resistance
+    83,   // Month 4 (July): Gaining traction
+    163,  // Month 5 (August): First patterns discovered - big jump!
+    138,  // Month 6 (September): Slight dip - Labor Day staffing, some skepticism
+    319,  // Month 7 (October): Major breakthrough - new pattern + training initiative
+    467,  // Month 8 (November): Sustained growth despite Thanksgiving dip
+    612   // Month 9 (December): High adoption despite holiday lower volume
   ];
 
-  // Readmission rates improving over time
-  const readmissionRateByMonth = [0.172, 0.165, 0.158, 0.150, 0.142, 0.135];
+  // Readmission rates improving over time (9 months) - realistic decimal values
+  const readmissionRateByMonth = [0.1798, 0.1747, 0.1722, 0.1606, 0.1541, 0.1491, 0.1382, 0.1352, 0.1290];
 
   let traceIndex = 1;
   const clinicalSnapshots = [];
@@ -27,7 +32,7 @@ export async function seedBulkDecisions(prisma: PrismaClient) {
   const contextMatches = [];
   const patterns = [];
 
-  for (let month = 1; month <= 6; month++) {
+  for (let month = 1; month <= 9; month++) {
     const decisionsThisMonth = MONTHLY_DECISIONS;
     const richContextCount = richContextByMonth[month - 1];
     const readmissionRate = readmissionRateByMonth[month - 1];
@@ -176,49 +181,50 @@ export async function seedBulkDecisions(prisma: PrismaClient) {
 }
 
 async function seedPatterns(prisma: PrismaClient) {
-  // Realistic pattern discovery progression:
-  // Month 1-2: No patterns yet (not enough data)
-  // Month 3: First 2 patterns discovered (initial insights)
-  // Month 4: 3 more patterns (AI learning accelerates)
-  // Month 5: 4 more patterns (breakthrough month)
-  // Month 6: 3 more patterns (sustained discovery)
-  // Total: 12 patterns by end of month 6
+  // Realistic pattern discovery progression for 9 months (April - December 2025):
+  // Month 1-4: No patterns yet (not enough data, system learning)
+  // Month 5: First 2 patterns discovered (initial insights - August)
+  // Month 6: 3 more patterns (AI learning accelerates - September)
+  // Month 7: 4 more patterns (breakthrough month - October)
+  // Month 8: 3 more patterns (sustained discovery - November)
+  // Month 9: 3 more patterns (optimization phase - December)
+  // Total: 15 patterns by end of month 9
   
   const patterns = [
-    // Month 3 - First discoveries (2 patterns)
+    // Month 5 (August) - First discoveries (2 patterns)
     {
       pattern_number: 'PAT-0001',
       title: 'Medical Background Caregiver Success',
-      description: 'Patients with caregivers who have medical training show 28% higher success rates for home discharge',
+      description: 'Patients with caregivers who have medical training show 27.3% higher success rates for home discharge',
       context_criteria: JSON.stringify(['caregiver_medical_background = true']),
       supporting_trace_ids: JSON.stringify([]),
-      sample_size: 450,
-      success_count: 378,
-      success_rate: 0.84,
-      baseline_rate: 0.65,
-      lift_vs_baseline: 0.19,
-      p_value: 0.001,
+      sample_size: 447,
+      success_count: 374,
+      success_rate: 0.837,
+      baseline_rate: 0.649,
+      lift_vs_baseline: 0.188,
+      p_value: 0.0012,
       statistically_significant: true,
       status: 'validated',
-      data_month: 3
+      data_month: 5
     },
     {
       pattern_number: 'PAT-0002',
       title: 'Close Proximity Caregiver',
-      description: 'Caregivers living within 10 minutes correlate with 22% better outcomes',
+      description: 'Caregivers living within 10 minutes correlate with 21.7% better outcomes',
       context_criteria: JSON.stringify(['caregiver_proximity_minutes <= 10']),
       supporting_trace_ids: JSON.stringify([]),
-      sample_size: 380,
-      success_count: 311,
-      success_rate: 0.82,
-      baseline_rate: 0.65,
-      lift_vs_baseline: 0.17,
-      p_value: 0.003,
+      sample_size: 383,
+      success_count: 314,
+      success_rate: 0.819,
+      baseline_rate: 0.649,
+      lift_vs_baseline: 0.170,
+      p_value: 0.0031,
       statistically_significant: true,
       status: 'validated',
-      data_month: 3
+      data_month: 5
     },
-    // Month 4 - Learning accelerates (3 patterns)
+    // Month 6 (September) - Learning accelerates (3 patterns)
     {
       pattern_number: 'PAT-0003',
       title: 'Full-Time Availability Pattern',
@@ -233,7 +239,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.0005,
       statistically_significant: true,
       status: 'validated',
-      data_month: 4
+      data_month: 6
     },
     {
       pattern_number: 'PAT-0004',
@@ -249,7 +255,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.002,
       statistically_significant: true,
       status: 'validated',
-      data_month: 4
+      data_month: 6
     },
     {
       pattern_number: 'PAT-0005',
@@ -265,9 +271,9 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.008,
       statistically_significant: true,
       status: 'validated',
-      data_month: 4
+      data_month: 6
     },
-    // Month 5 - Breakthrough month (4 patterns)
+    // Month 7 (October) - Breakthrough month (4 patterns)
     {
       pattern_number: 'PAT-0006',
       title: 'Combined Context Factors',
@@ -282,7 +288,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.0001,
       statistically_significant: true,
       status: 'validated',
-      data_month: 5
+      data_month: 7
     },
     {
       pattern_number: 'PAT-0007',
@@ -298,7 +304,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.001,
       statistically_significant: true,
       status: 'validated',
-      data_month: 5
+      data_month: 7
     },
     {
       pattern_number: 'PAT-0008',
@@ -314,7 +320,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.0003,
       statistically_significant: true,
       status: 'validated',
-      data_month: 5
+      data_month: 7
     },
     {
       pattern_number: 'PAT-0009',
@@ -330,9 +336,9 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.004,
       statistically_significant: true,
       status: 'validated',
-      data_month: 5
+      data_month: 7
     },
-    // Month 6 - Sustained discovery (3 patterns)
+    // Month 8 (November) - Sustained discovery (3 patterns)
     {
       pattern_number: 'PAT-0010',
       title: 'Short Length of Stay Success',
@@ -347,7 +353,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.01,
       statistically_significant: true,
       status: 'validated',
-      data_month: 6
+      data_month: 8
     },
     {
       pattern_number: 'PAT-0011',
@@ -363,7 +369,7 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.0002,
       statistically_significant: true,
       status: 'validated',
-      data_month: 6
+      data_month: 8
     },
     {
       pattern_number: 'PAT-0012',
@@ -379,10 +385,59 @@ async function seedPatterns(prisma: PrismaClient) {
       p_value: 0.015,
       statistically_significant: true,
       status: 'validated',
-      data_month: 6
+      data_month: 8
+    },
+    // Month 9 (December) - Optimization phase (3 patterns)
+    {
+      pattern_number: 'PAT-0013',
+      title: 'High ADL Score Success',
+      description: 'Patients with ADL score >= 20 show 19% better home discharge outcomes',
+      context_criteria: JSON.stringify(['adl_score >= 20']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 420,
+      success_count: 353,
+      success_rate: 0.84,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.19,
+      p_value: 0.002,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 9
+    },
+    {
+      pattern_number: 'PAT-0014',
+      title: 'Elderly Caregiver Risk Flag',
+      description: 'RISK: Caregivers aged 65+ with health issues correlate with 23% HIGHER readmission rates - consider additional support',
+      context_criteria: JSON.stringify(['caregiver_age >= 65', 'caregiver_health_status != Good']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 340,
+      success_count: 143,
+      success_rate: 0.42,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.23,
+      p_value: 0.0008,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 9
+    },
+    {
+      pattern_number: 'PAT-0015',
+      title: 'Comprehensive Support Network',
+      description: 'Patients with spouse + child caregivers show 26% better outcomes',
+      context_criteria: JSON.stringify(['caregiver_relationship = Spouse', 'living_situation = Lives with family']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 290,
+      success_count: 264,
+      success_rate: 0.91,
+      baseline_rate: 0.65,
+      lift_vs_baseline: 0.26,
+      p_value: 0.0001,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 9
     }
   ];
 
   await prisma.dCG_ContextPattern.createMany({ data: patterns });
-  console.log('Created 12 context patterns across months 3-6');
+  console.log('Created 15 context patterns across months 5-9');
 }

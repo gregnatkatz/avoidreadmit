@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { seedPatients } from './patients';
 import { seedEncounters } from './encounters';
 import { seedAmbientTranscripts } from './ambient';
+import { seedAmbientExtended } from './ambient-extended';
 import { seedEnsocareData } from './ensocare';
 import { seedBulkDecisions } from './bulk-data';
 import { seedMetrics } from './metrics';
@@ -10,7 +11,7 @@ import { seedDemoPatients } from './demo-patients';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting seed for large hospital (18K decisions over 6 months)...');
+  console.log('Starting seed for large hospital (27K decisions over 9 months)...');
 
   // Clear existing data
   console.log('Clearing existing data...');
@@ -24,6 +25,12 @@ async function main() {
   await prisma.dCG_MonthlyMetrics.deleteMany();
   await prisma.ambient_Voice_Transcript.deleteMany();
   await prisma.teams_Message.deleteMany();
+  // Clear new ambient extended tables
+  await prisma.ambient_Hallway_Approval.deleteMany();
+  await prisma.ambient_Family_Meeting.deleteMany();
+  await prisma.ambient_Nursing_Handoff.deleteMany();
+  await prisma.ambient_Rounding_Notes.deleteMany();
+  await prisma.eHR_Flowsheet_Context.deleteMany();
   await prisma.ensocare_SocialAssessment.deleteMany();
   await prisma.ensocare_Referral.deleteMany();
   await prisma.ensocare_Case.deleteMany();
@@ -61,7 +68,11 @@ async function main() {
   console.log('Seeding ambient transcripts...');
   await seedAmbientTranscripts(prisma);
 
-  // Seed bulk decisions (18K across 6 months)
+  // Seed extended ambient data (hallway approvals, family meetings, nursing handoffs, rounding notes, flowsheet context)
+  console.log('Seeding extended ambient data...');
+  await seedAmbientExtended(prisma);
+
+  // Seed bulk decisions (27K across 9 months)
   console.log('Seeding bulk decisions (18K)...');
   await seedBulkDecisions(prisma);
 

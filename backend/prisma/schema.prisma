@@ -203,6 +203,97 @@ model Teams_Message {
   created_at          DateTime @default(now())
 }
 
+// Ambient Hallway Approval - Quick verbal approvals between physicians
+model Ambient_Hallway_Approval {
+  id                  String   @id @default(uuid())
+  encounter_id        String?
+  patient_mrn         String
+  location            String
+  approving_physician String
+  requesting_staff    String
+  approval_type       String
+  approval_decision   String
+  context_captured    String
+  confidence_score    Float?
+  captured_datetime   DateTime
+  data_month          Int
+  created_at          DateTime @default(now())
+}
+
+// Ambient Family Meeting - Structured family meeting transcripts
+model Ambient_Family_Meeting {
+  id                    String   @id @default(uuid())
+  encounter_id          String?
+  patient_mrn           String
+  meeting_type          String
+  attendees             String
+  duration_minutes      Int?
+  key_decisions         String
+  family_concerns       String
+  patient_preferences   String
+  caregiver_commitments String
+  sentiment_score       Float?
+  action_items          String
+  meeting_datetime      DateTime
+  data_month            Int
+  created_at            DateTime @default(now())
+}
+
+// Ambient Nursing Handoff - Shift change conversations
+model Ambient_Nursing_Handoff {
+  id                    String   @id @default(uuid())
+  encounter_id          String?
+  patient_mrn           String
+  outgoing_nurse        String
+  incoming_nurse        String
+  shift_type            String
+  patient_status        String
+  key_concerns          String
+  pending_tasks         String
+  family_updates        String
+  discharge_readiness   String?
+  context_flags         String
+  handoff_datetime      DateTime
+  data_month            Int
+  created_at            DateTime @default(now())
+}
+
+// Ambient Rounding Notes - Morning rounds discussions
+model Ambient_Rounding_Notes {
+  id                    String   @id @default(uuid())
+  encounter_id          String?
+  patient_mrn           String
+  rounding_team         String
+  attending_physician   String
+  discussion_summary    String
+  discharge_plan        String?
+  barriers_identified   String
+  social_factors_noted  String
+  follow_up_actions     String
+  estimated_discharge   DateTime?
+  rounding_datetime     DateTime
+  data_month            Int
+  created_at            DateTime @default(now())
+}
+
+// EHR Flowsheet Context - Nursing flowsheet entries with contextual notes
+model EHR_Flowsheet_Context {
+  id                    String   @id @default(uuid())
+  encounter_id          String?
+  patient_mrn           String
+  documenting_nurse     String
+  flowsheet_category    String
+  entry_type            String
+  clinical_value        String?
+  contextual_note       String
+  patient_response      String?
+  family_involvement    String?
+  discharge_relevance   Boolean  @default(false)
+  entry_datetime        DateTime
+  data_month            Int
+  created_at            DateTime @default(now())
+}
+
 // DCG Clinical Snapshot
 model DCG_ClinicalSnapshot {
   id                           String   @id @default(uuid())

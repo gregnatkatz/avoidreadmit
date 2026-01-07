@@ -115,7 +115,36 @@ export const patternsApi = {
 export const aiApi = {
   getStatus: () => api.get<AIStatus>('/ai/status').then(r => r.data),
   runAnalysis: (patientMrn?: string, transcriptId?: string) => 
-    api.post('/ai/analyze', { patientMrn, transcriptId }).then(r => r.data)
+    api.post('/ai/analyze', { patientMrn, transcriptId }).then(r => r.data),
+  analyzeReadmission: async (decisionId: string) => {
+    // Simulate AI readmission analysis - in production this would call the backend
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    const rootCauses = ['new_ailment', 'existing_worsened', 'care_gap', 'social_factors'] as const
+    const rootCause = rootCauses[Math.floor(Math.random() * rootCauses.length)]
+    return {
+      rootCause,
+      rootCauseDescription: rootCause === 'new_ailment' ? 'Patient developed new condition (UTI) post-discharge' :
+        rootCause === 'existing_worsened' ? 'Primary condition (CHF) exacerbated due to medication non-adherence' :
+        rootCause === 'care_gap' ? 'Gap in care coordination - follow-up appointment missed' :
+        'Social factors - caregiver unavailable during critical recovery period',
+      contributingFactors: [
+        'Caregiver availability limited to weekends only',
+        'No medical background in family support network',
+        'Transportation barriers to follow-up appointments',
+        'Medication complexity (8+ daily medications)'
+      ].slice(0, Math.floor(Math.random() * 3) + 2),
+      preventionInsights: [
+        'Earlier identification of caregiver limitations could have triggered home health referral',
+        'Medication teach-back was incomplete - patient demonstrated confusion',
+        'Social work consult was not ordered despite risk factors'
+      ].slice(0, Math.floor(Math.random() * 2) + 1),
+      suggestedPattern: Math.random() > 0.5 ? {
+        title: 'Weekend-Only Caregiver Risk',
+        criteria: ['caregiver_availability = weekends_only', 'medication_count >= 5'],
+        expectedLift: -0.18
+      } : null
+    }
+  }
 }
 
 export default api

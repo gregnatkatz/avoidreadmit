@@ -25,7 +25,7 @@ export default function DemoControl() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-1">Demo Control</h2>
         <p className="text-gray-400 text-sm">
-          Navigate through 6 months of Context Graph implementation
+          Navigate through 9 months of Context Graph implementation (April - December 2025)
         </p>
       </div>
 
@@ -143,8 +143,8 @@ export default function DemoControl() {
             <div className="flex items-center gap-3">
               <DollarSign size={24} className="text-green-400" />
               <div>
-                <p className="text-xs text-gray-400">6-Month Target Savings</p>
-                <p className="text-2xl font-bold text-green-400">$5.0M</p>
+                <p className="text-xs text-gray-400">9-Month Target Savings</p>
+                <p className="text-2xl font-bold text-green-400">$8.16M</p>
               </div>
             </div>
           </div>
@@ -157,19 +157,31 @@ export default function DemoControl() {
           <div className={`p-4 rounded-xl ${currentMonth >= 1 ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5'}`}>
             <h4 className="font-medium text-white mb-1">Month 1-2: Baseline & Data Collection</h4>
             <p className="text-sm text-gray-400">
-              Establish baseline readmission rate (17.2%). Begin capturing caregiver context through ambient voice transcription.
+              Establish baseline readmission rate (17.98%). Begin capturing caregiver context through ambient voice transcription, hallway approvals, and nursing handoffs.
             </p>
           </div>
           <div className={`p-4 rounded-xl ${currentMonth >= 3 ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5'}`}>
-            <h4 className="font-medium text-white mb-1">Month 3-4: Pattern Discovery</h4>
+            <h4 className="font-medium text-white mb-1">Month 3-4: Context Capture Expansion</h4>
             <p className="text-sm text-gray-400">
-              AI agents discover first validated patterns. Context matching begins showing value. Readmission rate drops to 15%.
+              Expand ambient capture to family meetings and rounding notes. Building data foundation for pattern discovery. Readmission rate drops to 16%.
             </p>
           </div>
           <div className={`p-4 rounded-xl ${currentMonth >= 5 ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5'}`}>
-            <h4 className="font-medium text-white mb-1">Month 5-6: Full Implementation</h4>
+            <h4 className="font-medium text-white mb-1">Month 5-6: First Patterns Discovered</h4>
             <p className="text-sm text-gray-400">
-              Context Graph fully operational. 4 validated patterns. Readmission rate reaches target of 13.5%. $5M cumulative savings.
+              AI discovers first 5 validated patterns. Context matching begins showing value. Readmission rate drops to 14.9%. $2.7M cumulative savings.
+            </p>
+          </div>
+          <div className={`p-4 rounded-xl ${currentMonth >= 7 ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5'}`}>
+            <h4 className="font-medium text-white mb-1">Month 7-8: Breakthrough & Scaling</h4>
+            <p className="text-sm text-gray-400">
+              Major breakthrough - 12 patterns validated. Full ambient capture adoption. Readmission rate drops to 13.5%. $5.8M cumulative savings.
+            </p>
+          </div>
+          <div className={`p-4 rounded-xl ${currentMonth >= 9 ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5'}`}>
+            <h4 className="font-medium text-white mb-1">Month 9: Full Optimization</h4>
+            <p className="text-sm text-gray-400">
+              15 validated patterns. Context Graph fully optimized. Readmission rate reaches 12.9%. $8.16M cumulative savings achieved.
             </p>
           </div>
         </div>
