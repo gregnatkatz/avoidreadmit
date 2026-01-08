@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { TrendingDown, Users, DollarSign, Sparkles, Activity, Brain, ChevronDown } from 'lucide-react'
+import { TrendingDown, Users, DollarSign, Sparkles, Activity, Brain, ChevronDown, Bell } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, Legend } from 'recharts'
-import { dashboardApi } from '../api/client'
+import { dashboardApi, addendumApi } from '../api/client'
 import { useTimelineStore } from '../store/timeline'
+import { AlertList, AlertSummary } from '../components/addendum/AlertCard'
 
 type PersonaType = 'nurse' | 'executive'
 
@@ -23,11 +24,26 @@ export default function Dashboard() {
     refetchInterval: 600000
   })
 
-  const { data: impact } = useQuery({
-    queryKey: ['context-impact'],
-    queryFn: dashboardApi.getContextImpact,
-    refetchInterval: 600000
-  })
+    const { data: impact } = useQuery({
+      queryKey: ['context-impact'],
+      queryFn: dashboardApi.getContextImpact,
+      refetchInterval: 600000
+    })
+
+    // Addendum: Alerts for feedback loop
+    const queryClient = useQueryClient()
+    const { data: alertsData } = useQuery({
+      queryKey: ['pattern-alerts'],
+      queryFn: () => addendumApi.getAlerts(),
+      refetchInterval: 60000 // Refresh every minute
+    })
+
+    const acknowledgeAlertMutation = useMutation({
+      mutationFn: (alertId: string) => addendumApi.acknowledgeAlert(alertId, 'Dashboard User'),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['pattern-alerts'] })
+      }
+    })
 
   // Dynamic data from API - Decision outcomes distribution
   const decisionOutcomes = [
@@ -471,6 +487,34 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500">Readmissions Avoided</p>
           </div>
         </div>
+      </div>
+
+      {/* Row 6: Pattern Alerts - Feedback Loop */}
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="icon-box cyan-gradient">
+              <Bell size={20} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Pattern Alerts</h3>
+              <p className="text-xs text-gray-400">Automated feedback loop monitoring</p>
+            </div>
+          </div>
+          {alertsData?.alerts && <AlertSummary alerts={alertsData.alerts} />}
+        </div>
+        {alertsData?.alerts && alertsData.alerts.length > 0 ? (
+          <AlertList 
+            alerts={alertsData.alerts} 
+            onAcknowledge={(id) => acknowledgeAlertMutation.mutate(id)}
+            maxItems={5}
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Bell size={32} className="mx-auto mb-2 opacity-50" />
+            <p>No active alerts - all patterns performing within expected parameters</p>
+          </div>
+        )}
       </div>
     </div>
   )

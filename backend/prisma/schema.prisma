@@ -374,9 +374,22 @@ model DCG_DecisionTrace {
   data_month           Int
   created_at           DateTime @default(now())
 
+  // Temporal Context (Addendum)
+  policyVersionId      String?
+  policyVersion        PolicyVersion? @relation(fields: [policyVersionId], references: [id])
+  contextSnapshot      String?  // JSON: Frozen ambient context at decision moment
+  criteriaSnapshot     String?  // JSON: Discharge criteria values at decision time
+  
+  // AI Reasoning (Addendum)
+  aiRecommendation     String?  // "approve", "hold", "needs_review"
+  aiConfidence         Float?   // 0-1 confidence score
+  aiReasoning          String?  // JSON: Full reasoning chain from AI agents
+  riskScore            Float?   // Computed risk score at decision time
+
   outcome   DCG_Outcome?
   cited_by  DCG_ContextMatch[] @relation("CitedDecision")
   matches   DCG_ContextMatch[] @relation("MatchingDecision")
+  patternSnapshots DecisionPatternSnapshot[]
 }
 
 // DCG Outcome
@@ -432,6 +445,23 @@ model DCG_ContextPattern {
   status                  String
   data_month              Int
   created_at              DateTime @default(now())
+  
+  // Self-describing metadata (Addendum)
+  applicabilityRules      String?  // JSON: age range, diagnoses, LOS range, required sources
+  retrievalStrategy       String?  // JSON: match fields, weights, thresholds
+  contraindications       String?  // JSON: when NOT to apply this pattern
+  minimumConfidence       Float    @default(0.7) // Min context confidence to apply
+  
+  // Learning metadata (Addendum)
+  discoveryMethod         String?  // e.g., "statistical_correlation", "llm_inference"
+  evidenceStrength        String   @default("moderate") // "strong", "moderate", "emerging", "weak"
+  lastValidated           DateTime?
+  validationResults       String?  // JSON: validation details
+  
+  // Relations for temporal tracking
+  snapshots               PatternSnapshot[]
+  performanceRecords      PatternPerformance[]
+  alerts                  PatternAlert[]
 }
 
 // DCG Monthly Metrics
@@ -477,4 +507,155 @@ model Demo_Change {
   month_added Int
   summary     String?
   created_at  DateTime @default(now())
+}
+
+// ============================================
+// ADDENDUM: Temporal Context, Provenance & Feedback Loops
+// ============================================
+
+// Enum: Context Source Types for Ambient Context
+enum ContextSource {
+  NURSE_BEDSIDE
+  FAMILY_DISCUSSION
+  CARE_COORDINATION
+  SOCIAL_WORK
+  PT_OT_SESSION
+}
+
+// Enum: Alert Types for Pattern Alerts
+enum AlertType {
+  PERFORMANCE_DEGRADATION
+  INSUFFICIENT_SAMPLE
+  EMERGING_PATTERN
+  CONTRADICTORY_OUTCOMES
+  CONFIDENCE_DRIFT
+}
+
+// Policy Version - Track discharge criteria versions over time
+model PolicyVersion {
+  id            String    @id @default(uuid())
+  version       String    @unique // e.g., "v3.2"
+  effectiveDate DateTime
+  retiredDate   DateTime?
+  criteria      String    // JSON string of discharge criteria rules
+  description   String?
+  created_at    DateTime  @default(now())
+
+  decisions     DCG_DecisionTrace[]
+}
+
+// Pattern Snapshot - Point-in-time snapshot of pattern metrics
+model PatternSnapshot {
+  id            String   @id @default(uuid())
+  patternId     String
+  pattern       DCG_ContextPattern @relation(fields: [patternId], references: [id])
+  snapshotDate  DateTime @default(now())
+  successRate   Float
+  lift          Float
+  sampleSize    Int
+  conditions    String   // JSON string of pattern conditions at snapshot time
+  created_at    DateTime @default(now())
+
+  decisionSnapshots DecisionPatternSnapshot[]
+
+  @@index([patternId, snapshotDate])
+}
+
+// Decision Pattern Snapshot - Junction table linking decisions to pattern snapshots
+model DecisionPatternSnapshot {
+  id          String   @id @default(uuid())
+  decisionId  String
+  decision    DCG_DecisionTrace @relation(fields: [decisionId], references: [id])
+  snapshotId  String
+  snapshot    PatternSnapshot @relation(fields: [snapshotId], references: [id])
+  matchScore  Float    // How well patient matched this pattern at decision time
+  created_at  DateTime @default(now())
+
+  @@unique([decisionId, snapshotId])
+}
+
+// Ambient Context - Enhanced with provenance and confidence scoring
+model AmbientContext {
+  id                      String        @id @default(uuid())
+  patientMrn              String
+  encounterId             String?
+  
+  // Source information
+  source                  ContextSource
+  rawTranscript           String?       // Original audio transcription
+  extractedData           String        // JSON string of structured extraction
+  
+  // Provenance
+  capturedAt              DateTime      @default(now())
+  capturedBy              String?       // Device/system ID
+  sessionDuration         Int?          // Seconds - longer = more reliable
+  location                String?       // Where captured (room, hallway, etc.)
+  
+  // Confidence scores
+  transcriptionConfidence Float?        // ASR confidence 0-1
+  extractionConfidence    Float?        // NER/extraction confidence 0-1
+  sourceReliability       Float         // Base reliability for this source type
+  overallConfidence       Float         // Computed: transcription * extraction * source
+  
+  // Conflict resolution
+  supersedes              String?       // ID of context this replaces
+  supersededBy            String?       // ID of context that replaced this
+  conflictFlag            Boolean       @default(false)
+  resolutionNote          String?
+  resolvedAt              DateTime?
+  resolvedBy              String?
+  
+  data_month              Int
+  created_at              DateTime      @default(now())
+
+  @@index([patientMrn, source])
+  @@index([patientMrn, capturedAt])
+}
+
+// Pattern Performance - Track pattern metrics over time periods
+model PatternPerformance {
+  id                String   @id @default(uuid())
+  patternId         String
+  pattern           DCG_ContextPattern @relation(fields: [patternId], references: [id])
+  
+  periodStart       DateTime
+  periodEnd         DateTime
+  
+  totalApplications Int
+  successCount      Int
+  readmitCount      Int
+  pendingCount      Int
+  
+  successRate       Float
+  liftVsBaseline    Float
+  confidenceInterval String  // JSON: { lower: number, upper: number }
+  
+  trend             String   // "improving", "stable", "degrading"
+  alertFlag         Boolean  @default(false)
+  
+  created_at        DateTime @default(now())
+
+  @@unique([patternId, periodStart])
+  @@index([patternId, periodEnd])
+}
+
+// Pattern Alert - Alerts for pattern performance issues
+model PatternAlert {
+  id              String    @id @default(uuid())
+  patternId       String
+  pattern         DCG_ContextPattern @relation(fields: [patternId], references: [id])
+  
+  alertType       AlertType
+  severity        String    // "info", "warning", "critical"
+  message         String
+  details         String?   // JSON string with additional context
+  
+  createdAt       DateTime  @default(now())
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  resolution      String?   // Action taken to resolve
+  resolutionNote  String?
+  
+  @@index([patternId, createdAt])
+  @@index([severity, acknowledgedAt])
 }

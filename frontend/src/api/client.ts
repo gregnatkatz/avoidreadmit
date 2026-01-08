@@ -112,6 +112,185 @@ export const patternsApi = {
   getPattern: (id: string) => api.get(`/patterns/${id}`).then(r => r.data)
 }
 
+// Addendum API - Temporal Context, Provenance, Alerts, Enhanced Patterns
+export interface PolicyVersion {
+  id: string
+  version: string
+  effectiveDate: string
+  retiredDate: string | null
+  criteria: Record<string, unknown>
+  description: string | null
+  decisionCount: number
+}
+
+export interface PatternSnapshot {
+  id: string
+  patternId: string
+  snapshotDate: string
+  successRate: number
+  lift: number
+  sampleSize: number
+  conditions: Record<string, unknown>
+}
+
+export interface AmbientContextSource {
+  source: string
+  confidence: number
+  reliability: number
+  data: Record<string, unknown>
+  capturedAt: string
+}
+
+export interface AggregatedContext {
+  patientMrn: string
+  sources: AmbientContextSource[]
+  aggregatedData: Record<string, unknown>
+  overallConfidence: number
+  conflictsResolved: number
+}
+
+export interface PatternAlert {
+  id: string
+  patternId: string
+  patternTitle: string
+  alertType: string
+  severity: string
+  message: string
+  details: Record<string, unknown>
+  createdAt: string
+}
+
+export interface PatternPerformance {
+  id: string
+  patternId: string
+  periodStart: string
+  periodEnd: string
+  totalApplications: number
+  successCount: number
+  readmitCount: number
+  pendingCount: number
+  successRate: number
+  liftVsBaseline: number
+  confidenceInterval: { lower: number; upper: number }
+  trend: string
+  alertFlag: boolean
+}
+
+export interface EnhancedPattern {
+  id: string
+  patternNumber: string
+  title: string
+  description: string
+  status: string
+  metrics: {
+    successRate: number
+    sampleSize: number
+    lift: number | null
+    pValue: number | null
+    statisticallySignificant: boolean
+  }
+  selfDescribing: {
+    applicabilityRules: Record<string, unknown> | null
+    retrievalStrategy: Record<string, unknown> | null
+    contraindications: Record<string, unknown> | null
+    minimumConfidence: number
+  }
+  learning: {
+    discoveryMethod: string | null
+    evidenceStrength: string
+    lastValidated: string | null
+    validationResults: Record<string, unknown> | null
+  }
+  counts: {
+    snapshots: number
+    performanceRecords: number
+    activeAlerts: number
+  }
+  dataMonth: number
+  createdAt: string
+}
+
+export interface DecisionTemporalContext {
+  decision: {
+    id: string
+    traceNumber: string
+    decisionDatetime: string
+    decisionValue: string
+    decisionMaker: string
+  }
+  policyVersion: {
+    version: string
+    effectiveDate: string
+    criteria: Record<string, unknown>
+  } | null
+  contextSnapshot: Record<string, unknown> | null
+  criteriaSnapshot: Record<string, unknown> | null
+  aiReasoning: Record<string, unknown> | null
+  aiRecommendation: string | null
+  aiConfidence: number | null
+  riskScore: number | null
+  patternsApplied: Array<{
+    patternId: string
+    patternNumber: string
+    patternTitle: string
+    matchScore: number
+    snapshotMetrics: {
+      successRate: number
+      lift: number
+      sampleSize: number
+    }
+  }>
+  outcome: Record<string, unknown> | null
+}
+
+export const addendumApi = {
+  // Temporal Context
+  getPolicyVersions: (active?: boolean) => 
+    api.get<PolicyVersion[]>('/addendum/policy-versions', { params: { active } }).then(r => r.data),
+  getPolicyVersion: (id: string) => 
+    api.get<PolicyVersion>(`/addendum/policy-versions/${id}`).then(r => r.data),
+  getPatternSnapshots: (patternId: string, limit?: number) => 
+    api.get<PatternSnapshot[]>(`/addendum/pattern-snapshots/${patternId}`, { params: { limit } }).then(r => r.data),
+  getDecisionTemporalContext: (decisionId: string) => 
+    api.get<DecisionTemporalContext>(`/addendum/decision/${decisionId}/temporal`).then(r => r.data),
+
+  // Provenance & Confidence
+  getAmbientContext: (patientMrn: string, encounterId?: string) => 
+    api.get<AggregatedContext>(`/addendum/ambient-context/${patientMrn}`, { params: { encounterId } }).then(r => r.data),
+  detectConflicts: (patientMrn: string, timeWindowHours?: number) => 
+    api.get(`/addendum/conflicts/${patientMrn}`, { params: { timeWindowHours } }).then(r => r.data),
+  resolveConflict: (context1Id: string, context2Id: string, resolvedBy: string, winnerId?: string, note?: string) => 
+    api.post('/addendum/conflicts/resolve', { context1Id, context2Id, resolvedBy, winnerId, note }).then(r => r.data),
+  getSourceReliability: () => 
+    api.get<Record<string, number>>('/addendum/source-reliability').then(r => r.data),
+
+  // Pattern Matching
+  matchPatterns: (patientContext: Record<string, unknown>, options?: Record<string, unknown>) => 
+    api.post('/addendum/match-patterns', { patientContext, options }).then(r => r.data),
+  getDecisionPatterns: (decisionId: string) => 
+    api.get(`/addendum/decision/${decisionId}/patterns`).then(r => r.data),
+
+  // Alerts & Feedback
+  getAlerts: (patternId?: string, severity?: string) => 
+    api.get<{ alertCount: number; alerts: PatternAlert[] }>('/addendum/alerts', { params: { patternId, severity } }).then(r => r.data),
+  acknowledgeAlert: (alertId: string, acknowledgedBy: string, resolution?: string, resolutionNote?: string) => 
+    api.post(`/addendum/alerts/${alertId}/acknowledge`, { acknowledgedBy, resolution, resolutionNote }).then(r => r.data),
+  getPatternPerformance: (patternId: string, limit?: number) => 
+    api.get<{ patternId: string; periods: PatternPerformance[] }>(`/addendum/pattern-performance/${patternId}`, { params: { limit } }).then(r => r.data),
+  runFeedbackAnalysis: (periodStart?: string, periodEnd?: string) => 
+    api.post('/addendum/run-feedback-analysis', { periodStart, periodEnd }).then(r => r.data),
+  getEmergingPatterns: (minSampleSize?: number, minSuccessRate?: number) => 
+    api.get('/addendum/emerging-patterns', { params: { minSampleSize, minSuccessRate } }).then(r => r.data),
+
+  // Enhanced Patterns
+  getEnhancedPatterns: (status?: string, evidenceStrength?: string) => 
+    api.get<EnhancedPattern[]>('/addendum/patterns', { params: { status, evidenceStrength } }).then(r => r.data),
+  getEnhancedPattern: (id: string) => 
+    api.get<EnhancedPattern>(`/addendum/patterns/${id}`).then(r => r.data),
+  updatePatternMetadata: (id: string, metadata: Record<string, unknown>) => 
+    api.patch(`/addendum/patterns/${id}`, metadata).then(r => r.data),
+}
+
 export interface DischargeReadinessAnalysis {
   success: boolean
   analysis: {
