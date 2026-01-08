@@ -1,10 +1,24 @@
-import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronRight, RotateCcw, TrendingDown, DollarSign } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Calendar, ChevronRight, RotateCcw, TrendingDown, DollarSign, Sparkles, Loader2, Brain, BarChart3 } from 'lucide-react'
 import { useTimelineStore, getMonthLabel } from '../store/timeline'
-import { dashboardApi } from '../api/client'
+import { dashboardApi, patternsApi } from '../api/client'
+import { useState } from 'react'
 
 export default function DemoControl() {
   const { currentMonth, totalMonths, advanceMonth, gotoMonth, resetTimeline, isLoading } = useTimelineStore()
+  const [discoveryResult, setDiscoveryResult] = useState<any>(null)
+  const queryClient = useQueryClient()
+
+  // Pattern discovery mutation
+  const discoveryMutation = useMutation({
+    mutationFn: patternsApi.runDiscovery,
+    onSuccess: (data) => {
+      setDiscoveryResult(data.result)
+      queryClient.invalidateQueries({ queryKey: ['patterns'] })
+      queryClient.invalidateQueries({ queryKey: ['pattern-candidates'] })
+      queryClient.invalidateQueries({ queryKey: ['pattern-alerts'] })
+    }
+  })
 
   const { data: trend } = useQuery({
     queryKey: ['readmission-trend'],
@@ -149,6 +163,89 @@ export default function DemoControl() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Pattern Discovery Section */}
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Pattern Discovery</h3>
+            <p className="text-sm text-gray-400">Run autonomous pattern discovery to find new patterns from outcome data</p>
+          </div>
+          <button
+            onClick={() => discoveryMutation.mutate()}
+            disabled={discoveryMutation.isPending}
+            className="btn-primary flex items-center gap-2 disabled:opacity-50"
+          >
+            {discoveryMutation.isPending ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Running Discovery...
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                Run Pattern Discovery Now
+              </>
+            )}
+          </button>
+        </div>
+
+        {discoveryResult && (
+          <div className="p-4 rounded-xl bg-white/5 space-y-3">
+            <h4 className="font-medium text-white mb-2">Discovery Results</h4>
+            <div className="grid grid-cols-5 gap-4">
+              <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart3 size={14} className="text-cyan-400" />
+                  <span className="text-xs text-gray-400">Statistical</span>
+                </div>
+                <p className="text-xl font-bold text-cyan-400">{discoveryResult.statisticalCandidates}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Brain size={14} className="text-purple-400" />
+                  <span className="text-xs text-gray-400">LLM</span>
+                </div>
+                <p className="text-xl font-bold text-purple-400">{discoveryResult.llmCandidates}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={14} className="text-green-400" />
+                  <span className="text-xs text-gray-400">Validated</span>
+                </div>
+                <p className="text-xl font-bold text-green-400">{discoveryResult.validated}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <ChevronRight size={14} className="text-blue-400" />
+                  <span className="text-xs text-gray-400">Promoted</span>
+                </div>
+                <p className="text-xl font-bold text-blue-400">{discoveryResult.promoted}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingDown size={14} className="text-yellow-400" />
+                  <span className="text-xs text-gray-400">Deprecated</span>
+                </div>
+                <p className="text-xl font-bold text-yellow-400">{discoveryResult.deprecated}</p>
+              </div>
+            </div>
+            {discoveryResult.errors?.length > 0 && (
+              <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <p className="text-xs text-red-400 mb-1">Errors:</p>
+                <ul className="text-xs text-gray-400 list-disc list-inside">
+                  {discoveryResult.errors.map((err: string, i: number) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-2">
+              New candidates are available for review on the Patterns page.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="glass-card p-6">
