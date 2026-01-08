@@ -79,7 +79,8 @@ async function sleep(ms: number): Promise<void> {
 async function callWithRetry(
   provider: AIProvider,
   messages: { role: 'system' | 'user'; content: string }[],
-  config: RetryConfig = DEFAULT_RETRY_CONFIG
+  config: RetryConfig = DEFAULT_RETRY_CONFIG,
+  timeoutMs: number = 45000
 ): Promise<{ content: string; inputTokens: number; outputTokens: number } | null> {
   let delay = config.initialDelayMs;
   
@@ -88,14 +89,22 @@ async function callWithRetry(
       const requestParams: Parameters<typeof provider.client.chat.completions.create>[0] = {
         model: provider.model,
         messages,
-        max_completion_tokens: 2000
+        max_completion_tokens: 1500
       };
       
       if (provider.supportsTemperature !== false) {
         requestParams.temperature = 0.7;
       }
       
-      const response = await provider.client.chat.completions.create(requestParams);
+      // Add timeout using AbortController
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      const response = await provider.client.chat.completions.create(requestParams, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
 
       const content = response.choices[0]?.message?.content;
       console.log(`[${provider.name}] Response usage:`, JSON.stringify(response.usage));
