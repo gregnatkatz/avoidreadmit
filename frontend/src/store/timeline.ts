@@ -72,6 +72,7 @@ const createProgressSteps = (action: 'advance' | 'goto' | 'reset', currentMonth?
     return [
       { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
       { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
+      { id: 'evolve', label: 'Evolving patterns with new evidence...', status: 'pending' },
       { id: 'statistical', label: 'Running statistical pattern analysis...', status: 'pending' },
       { id: 'ai-social', label: 'GPT-5.2: Analyzing social/caregiver patterns...', status: 'pending' },
       { id: 'ai-clinical', label: 'o3-2: Analyzing clinical patterns (reasoning)...', status: 'pending' },
@@ -83,13 +84,26 @@ const createProgressSteps = (action: 'advance' | 'goto' | 'reset', currentMonth?
     ]
   }
   
-  // For month 4-5, show candidate/emerging pattern discovery
-  if (targetMonth >= 4) {
+  // For month 5, show pattern evolution + emerging pattern discovery
+  if (targetMonth === 5) {
+    return [
+      { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
+      { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
+      { id: 'evolve', label: 'Evolving patterns with new evidence...', status: 'pending' },
+      { id: 'analyze', label: 'Analyzing patterns in data...', status: 'pending' },
+      { id: 'discover', label: 'Discovering emerging patterns...', status: 'pending' },
+      { id: 'upgrade', label: 'Upgrading pattern confidence levels...', status: 'pending' },
+      { id: 'complete', label: 'Pattern evolution complete!', status: 'pending' }
+    ]
+  }
+  
+  // For month 4, show candidate pattern discovery (no evolution yet)
+  if (targetMonth === 4) {
     return [
       { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
       { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
       { id: 'analyze', label: 'Analyzing patterns in data...', status: 'pending' },
-      { id: 'discover', label: targetMonth === 4 ? 'Discovering candidate patterns...' : 'Discovering emerging patterns...', status: 'pending' },
+      { id: 'discover', label: 'Discovering candidate patterns...', status: 'pending' },
       { id: 'validate', label: 'Validating pattern significance...', status: 'pending' },
       { id: 'complete', label: 'Pattern discovery complete!', status: 'pending' }
     ]

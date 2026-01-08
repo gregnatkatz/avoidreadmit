@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { trackTimelineAdvanced } from '../telemetry';
 import { generateOutcomes } from '../services/demo/outcomeGenerator';
-import { runIntegratedPatternDiscovery, runEnhancedMultiModelDiscovery } from '../services/demo/integratedPatternDiscovery';
+import { runIntegratedPatternDiscovery, runEnhancedMultiModelDiscovery, evolveExistingPatterns } from '../services/demo/integratedPatternDiscovery';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -65,7 +65,18 @@ router.post('/advance', async (_req, res) => {
     console.log(`[Timeline] Generating outcomes for month ${newMonth}...`);
     const outcomeResults = await generateOutcomes(newMonth);
     
-    // 2. Run pattern discovery on accumulated data
+    // 2. Evolve existing patterns with new data (re-evaluate statistics, upgrade evidence strength)
+    // This allows patterns to accumulate evidence and transition: moderate -> strong, CANDIDATE -> ACTIVE
+    let evolutionResults: any = null;
+    if (newMonth >= 5) {
+      console.log(`[Timeline] Evolving existing patterns with new data...`);
+      evolutionResults = await evolveExistingPatterns(newMonth);
+      if (evolutionResults.upgraded > 0) {
+        console.log(`[Timeline] ${evolutionResults.upgraded} patterns upgraded to stronger evidence!`);
+      }
+    }
+    
+    // 3. Run pattern discovery on accumulated data
     // Month 4: Run candidate discovery (early signals with relaxed thresholds)
     // Month 5+: Run full statistical discovery
     // Month 6+: Run enhanced multi-model AI discovery with domain specialization
@@ -142,7 +153,14 @@ router.post('/advance', async (_req, res) => {
         id: p.pattern_number,
         title: p.title,
         lift: p.lift_vs_baseline
-      }))
+      })),
+      // Pattern evolution results - patterns that accumulated more evidence
+      patternEvolution: evolutionResults ? {
+        updated: evolutionResults.updated,
+        upgraded: evolutionResults.upgraded,
+        degraded: evolutionResults.degraded,
+        details: evolutionResults.details
+      } : null
     });
   } catch (error) {
     console.error('Error advancing timeline:', error);

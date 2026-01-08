@@ -326,6 +326,222 @@ export async function runIntegratedPatternDiscovery(upToMonth: number): Promise<
   return newPatterns
 }
 
+// Pattern Evolution: Re-evaluate existing patterns against new data each month
+// This allows patterns to accumulate evidence and transition through lifecycle stages:
+// - Evidence strength: weak -> moderate -> strong (based on sample size)
+// - Status: CANDIDATE -> EMERGING -> VALIDATED -> ACTIVE (based on statistical strength)
+export async function evolveExistingPatterns(upToMonth: number): Promise<{
+  updated: number;
+  upgraded: number;
+  degraded: number;
+  details: Array<{ patternId: string; title: string; change: string }>
+}> {
+  console.log(`[Pattern Evolution] Re-evaluating existing patterns with data through month ${upToMonth}...`)
+  
+  // 1. Get all existing patterns that can evolve
+  const existingPatterns = await prisma.dCG_ContextPattern.findMany({
+    where: {
+      status: { in: ['CANDIDATE', 'EMERGING', 'VALIDATED', 'ACTIVE', 'RISK'] }
+    }
+  })
+  
+  if (existingPatterns.length === 0) {
+    console.log(`[Pattern Evolution] No patterns to evolve`)
+    return { updated: 0, upgraded: 0, degraded: 0, details: [] }
+  }
+  
+  // 2. Get all decisions with outcomes up to this month
+  const outcomes = await prisma.dCG_Outcome.findMany({
+    where: { data_month: { lte: upToMonth } },
+    include: {
+      trace: {
+        include: {
+          social_snapshot: true,
+          clinical_snapshot: true
+        }
+      }
+    }
+  })
+  
+  const decisions: DecisionWithContext[] = outcomes.map(o => ({
+    id: o.trace_id,
+    outcome: o.outcome_success,
+    context: extractContextFields(o.trace.social_snapshot, o.trace.clinical_snapshot)
+  }))
+  
+  const baselineSuccessRate = decisions.filter(d => d.outcome).length / decisions.length
+  
+  console.log(`[Pattern Evolution] Evaluating ${existingPatterns.length} patterns against ${decisions.length} decisions`)
+  
+  let updated = 0
+  let upgraded = 0
+  let degraded = 0
+  const details: Array<{ patternId: string; title: string; change: string }> = []
+  
+  // 3. Re-evaluate each pattern
+  for (const pattern of existingPatterns) {
+    try {
+      // Parse the pattern's conditions
+      const conditions = JSON.parse(pattern.context_criteria) as Array<{
+        field: string
+        operator: string
+        value: string | number | boolean
+      }>
+      
+      // Convert to ContextFeatures
+      const features: ContextFeature[] = conditions.map(c => ({
+        field: c.field,
+        operator: c.operator as 'eq' | 'lte' | 'gte' | 'lt' | 'gt',
+        value: c.value,
+        displayValue: `${c.operator} ${c.value}`
+      }))
+      
+      // Find all matching decisions
+      const matching = decisions.filter(d => 
+        features.every(f => matchesFeature(d.context, f))
+      )
+      
+      if (matching.length < 10) {
+        console.log(`[Pattern Evolution] ${pattern.pattern_number}: Insufficient matches (${matching.length})`)
+        continue
+      }
+      
+      // Calculate new statistics
+      const newSuccessCount = matching.filter(d => d.outcome).length
+      const newTotalCount = matching.length
+      const newSuccessRate = newSuccessCount / newTotalCount
+      const newLift = newSuccessRate - baselineSuccessRate
+      
+      // Calculate new p-value (chi-square test)
+      const expectedSuccess = newTotalCount * baselineSuccessRate
+      const expectedFailure = newTotalCount * (1 - baselineSuccessRate)
+      const failureCount = newTotalCount - newSuccessCount
+      const chi2 = 
+        Math.pow(newSuccessCount - expectedSuccess, 2) / expectedSuccess +
+        Math.pow(failureCount - expectedFailure, 2) / expectedFailure
+      const newPValue = Math.exp(-chi2 / 2)
+      
+      // Calculate new confidence interval
+      const newCI = wilsonInterval(newSuccessCount, newTotalCount)
+      
+      // Determine new evidence strength based on sample size
+      const oldEvidenceStrength = pattern.evidenceStrength
+      let newEvidenceStrength: string
+      if (newTotalCount >= 150) {
+        newEvidenceStrength = 'strong'
+      } else if (newTotalCount >= 75) {
+        newEvidenceStrength = 'moderate'
+      } else if (newTotalCount >= 30) {
+        newEvidenceStrength = 'emerging'
+      } else {
+        newEvidenceStrength = 'weak'
+      }
+      
+      // Determine new status based on statistical strength
+      const oldStatus = pattern.status
+      let newStatus = oldStatus
+      const isRisk = newLift < 0
+      
+      if (!isRisk) {
+        // Positive patterns: CANDIDATE -> EMERGING -> VALIDATED -> ACTIVE
+        if (newTotalCount >= THRESHOLDS.VALIDATED.minSampleSize && 
+            newLift >= THRESHOLDS.VALIDATED.minLift && 
+            newPValue <= THRESHOLDS.VALIDATED.maxPValue) {
+          newStatus = 'ACTIVE'
+        } else if (newTotalCount >= THRESHOLDS.EMERGING.minSampleSize && 
+                   newLift >= THRESHOLDS.EMERGING.minLift && 
+                   newPValue <= THRESHOLDS.EMERGING.maxPValue) {
+          newStatus = 'VALIDATED'
+        } else if (newTotalCount >= THRESHOLDS.CANDIDATE.minSampleSize && 
+                   newLift >= THRESHOLDS.CANDIDATE.minLift && 
+                   newPValue <= THRESHOLDS.CANDIDATE.maxPValue) {
+          newStatus = 'EMERGING'
+        }
+      } else {
+        // Risk patterns stay as RISK but can strengthen
+        newStatus = 'RISK'
+      }
+      
+      // Check if anything changed
+      const hasStatisticalChange = 
+        pattern.sample_size !== newTotalCount ||
+        Math.abs((pattern.lift_vs_baseline || 0) - newLift) > 0.001
+      
+      const hasEvidenceChange = oldEvidenceStrength !== newEvidenceStrength
+      const hasStatusChange = oldStatus !== newStatus
+      
+      if (hasStatisticalChange || hasEvidenceChange || hasStatusChange) {
+        // Update the pattern
+        await prisma.dCG_ContextPattern.update({
+          where: { id: pattern.id },
+          data: {
+            sample_size: newTotalCount,
+            success_count: newSuccessCount,
+            success_rate: newSuccessRate,
+            baseline_rate: baselineSuccessRate,
+            lift_vs_baseline: newLift,
+            p_value: newPValue,
+            statistically_significant: newPValue <= 0.05,
+            evidenceStrength: newEvidenceStrength,
+            status: newStatus,
+            lastValidated: new Date(),
+            validationResults: JSON.stringify({
+              confidenceInterval: newCI,
+              pValue: newPValue,
+              sampleSize: newTotalCount,
+              successCount: newSuccessCount,
+              successRate: newSuccessRate,
+              lift: newLift,
+              evolvedAt: new Date().toISOString(),
+              previousSampleSize: pattern.sample_size,
+              previousEvidenceStrength: oldEvidenceStrength,
+              previousStatus: oldStatus
+            })
+          }
+        })
+        
+        updated++
+        
+        // Track upgrades and degradations
+        const evidenceRank = { weak: 1, emerging: 2, moderate: 3, strong: 4 }
+        const oldRank = evidenceRank[oldEvidenceStrength as keyof typeof evidenceRank] || 2
+        const newRank = evidenceRank[newEvidenceStrength as keyof typeof evidenceRank] || 2
+        
+        let changeDescription = ''
+        if (newRank > oldRank) {
+          upgraded++
+          changeDescription = `Evidence: ${oldEvidenceStrength} → ${newEvidenceStrength}`
+        } else if (newRank < oldRank) {
+          degraded++
+          changeDescription = `Evidence: ${oldEvidenceStrength} → ${newEvidenceStrength} (degraded)`
+        }
+        
+        if (hasStatusChange) {
+          changeDescription += changeDescription ? `, Status: ${oldStatus} → ${newStatus}` : `Status: ${oldStatus} → ${newStatus}`
+        }
+        
+        if (!changeDescription && hasStatisticalChange) {
+          changeDescription = `Sample: ${pattern.sample_size} → ${newTotalCount}, Lift: ${((pattern.lift_vs_baseline || 0) * 100).toFixed(1)}% → ${(newLift * 100).toFixed(1)}%`
+        }
+        
+        details.push({
+          patternId: pattern.pattern_number,
+          title: pattern.title,
+          change: changeDescription
+        })
+        
+        console.log(`[Pattern Evolution] ${pattern.pattern_number}: ${changeDescription}`)
+      }
+    } catch (error) {
+      console.error(`[Pattern Evolution] Error evolving pattern ${pattern.pattern_number}:`, error)
+    }
+  }
+  
+  console.log(`[Pattern Evolution] Complete: ${updated} updated, ${upgraded} upgraded, ${degraded} degraded`)
+  
+  return { updated, upgraded, degraded, details }
+}
+
 function extractContextFields(socialSnapshot: any, clinicalSnapshot: any): Record<string, any> {
   const ctx: Record<string, any> = {}
   
