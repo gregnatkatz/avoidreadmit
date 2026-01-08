@@ -10,6 +10,19 @@ export function randomChoice<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Weighted random selection - weights should sum to 1.0
+export function weightedRandomChoice<T>(items: T[], weights: number[]): T {
+  const random = Math.random();
+  let cumulative = 0;
+  for (let i = 0; i < items.length; i++) {
+    cumulative += weights[i];
+    if (random < cumulative) {
+      return items[i];
+    }
+  }
+  return items[items.length - 1];
+}
+
 export function randomBoolean(probability = 0.5): boolean {
   return Math.random() < probability;
 }

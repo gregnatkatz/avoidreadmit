@@ -21,7 +21,8 @@ const BASELINE_SUCCESS_RATE = 0.65
 
 // Minimum requirements for pattern validation
 const MIN_SAMPLE_SIZE = 20
-const MIN_LIFT = 0.10  // 10% improvement over baseline
+const MIN_POSITIVE_LIFT = 0.10  // 10% improvement over baseline for positive patterns
+const MIN_NEGATIVE_LIFT = -0.10  // 10% WORSE than baseline for risk patterns
 const MAX_P_VALUE = 0.05  // 95% confidence
 
 export async function discoverStatisticalPatterns(): Promise<CandidatePattern[]> {
@@ -72,7 +73,11 @@ export async function discoverStatisticalPatterns(): Promise<CandidatePattern[]>
     // Chi-square test for significance
     const pValue = calculateChiSquare(successCount, totalCount, BASELINE_SUCCESS_RATE)
 
-    if (lift >= MIN_LIFT && pValue <= MAX_P_VALUE) {
+    // Find both POSITIVE patterns (high success) and NEGATIVE patterns (risk factors)
+    const isPositivePattern = lift >= MIN_POSITIVE_LIFT && pValue <= MAX_P_VALUE
+    const isNegativePattern = lift <= MIN_NEGATIVE_LIFT && pValue <= MAX_P_VALUE
+    
+    if (isPositivePattern || isNegativePattern) {
       candidates.push({
         features: combo,
         successCount,
@@ -254,8 +259,8 @@ function calculateChiSquare(successes: number, total: number, expected: number):
 }
 
 function pruneRedundantPatterns(patterns: CandidatePattern[]): CandidatePattern[] {
-  // Sort by lift descending
-  patterns.sort((a, b) => b.lift - a.lift)
+  // Sort by absolute lift descending (both positive and negative patterns are important)
+  patterns.sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift))
 
   const kept: CandidatePattern[] = []
 
