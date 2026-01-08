@@ -76,11 +76,19 @@ export interface ContextStats {
   monthlyStats: { month: number; label: string; decisions: number; matches: number; patterns: number }[]
 }
 
+export interface PatternDiscoveryData {
+  month: string
+  monthNumber: number
+  patterns: number
+  matches: number
+}
+
 export const dashboardApi = {
   getSummary: () => api.get<DashboardSummary>('/dashboard/summary').then(r => r.data),
   getReadmissionTrend: () => api.get<ReadmissionTrend[]>('/dashboard/readmission-trend').then(r => r.data),
   getContextImpact: () => api.get<ContextImpact>('/dashboard/context-impact').then(r => r.data),
-  getCostSavings: () => api.get('/dashboard/cost-savings').then(r => r.data)
+  getCostSavings: () => api.get('/dashboard/cost-savings').then(r => r.data),
+  getPatternDiscovery: () => api.get<PatternDiscoveryData[]>('/dashboard/pattern-discovery').then(r => r.data)
 }
 
 export const timelineApi = {
