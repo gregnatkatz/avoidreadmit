@@ -1,7 +1,8 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Search, Filter, ChevronDown, ChevronRight, Brain, CheckCircle, XCircle, Clock, AlertTriangle, User, Heart, Pill, Car, Shield, Loader2, ThumbsUp, ThumbsDown, HelpCircle, FileText, Sparkles, Activity, Database, GitBranch, Zap, MessageSquare, Edit3, X } from 'lucide-react'
+import { Search, Filter, ChevronDown, ChevronRight, Brain, CheckCircle, XCircle, Clock, AlertTriangle, User, Heart, Pill, Car, Shield, Loader2, ThumbsUp, ThumbsDown, HelpCircle, FileText, Sparkles, Activity, Database, GitBranch, Zap, MessageSquare, Edit3, X, Signal } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { patientsApi, aiApi, Patient, DischargeReadinessAnalysis } from '../api/client'
+import { patientsApi, aiApi, addendumApi, Patient, DischargeReadinessAnalysis } from '../api/client'
+import { ConfidenceIndicator } from '../components/addendum/ConfidenceIndicator'
 
 // Analysis progress steps for visual feedback
 const ANALYSIS_STEPS = [
@@ -245,10 +246,28 @@ export default function Worklist() {
   const [overrideReason, setOverrideReason] = useState('')
   const [expandedRiskFactors, setExpandedRiskFactors] = useState<Record<string, boolean>>({})
   
-  const { data: patients, isLoading } = useQuery({
-    queryKey: ['worklist'],
-    queryFn: patientsApi.getWorklist
-  })
+    const { data: patients, isLoading } = useQuery({
+      queryKey: ['worklist'],
+      queryFn: patientsApi.getWorklist
+    })
+
+    // Track ambient context confidence for expanded patient
+    const [patientConfidence, setPatientConfidence] = useState<Record<string, number>>({})
+  
+    // Fetch ambient context when patient is expanded
+    useEffect(() => {
+      if (expandedPatient && !patientConfidence[expandedPatient]) {
+        addendumApi.getAmbientContext(expandedPatient)
+          .then(data => {
+            if (data?.overallConfidence) {
+              setPatientConfidence(prev => ({ ...prev, [expandedPatient]: data.overallConfidence }))
+            }
+          })
+          .catch(() => {
+            // Silently fail - confidence is optional enhancement
+          })
+      }
+    }, [expandedPatient, patientConfidence])
 
     // Auto-trigger analysis when patient is expanded (background prefetch)
     useEffect(() => {
@@ -588,23 +607,38 @@ export default function Worklist() {
                 </div>
               </div>
 
-              {/* Expanded Content */}
-              {isExpanded && (
-                <div className="border-t border-white/10 p-6">
-                  {!analysis && !isAnalyzing && (
-                    <div className="text-center py-8">
-                      <Brain size={48} className="mx-auto text-cyan-400 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">Run Discharge Readiness Analysis</h3>
-                      <p className="text-gray-400 text-sm mb-4">
-                        The Discharge Readiness Agent will evaluate all requirements per CMS, Joint Commission, and AHRQ standards
-                      </p>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); analyzeDischargeReadiness.mutate(patient) }}
-                        className="btn-primary flex items-center gap-2 mx-auto"
-                      >
-                        <Brain size={16} />
-                        Analyze Discharge Readiness
-                      </button>
+                            {/* Expanded Content */}
+                            {isExpanded && (
+                              <div className="border-t border-white/10 p-6">
+                                {/* Context Confidence Indicator */}
+                                {patientConfidence[patient.mrn] !== undefined && (
+                                  <div className="mb-4 p-3 rounded-lg bg-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Signal size={16} className="text-cyan-400" />
+                                      <span className="text-sm text-gray-300">Ambient Context Confidence</span>
+                                    </div>
+                                    <ConfidenceIndicator 
+                                      confidence={patientConfidence[patient.mrn]} 
+                                      size="sm"
+                                      showPercentage
+                                    />
+                                  </div>
+                                )}
+                  
+                                {!analysis && !isAnalyzing && (
+                                  <div className="text-center py-8">
+                                    <Brain size={48} className="mx-auto text-cyan-400 mb-4" />
+                                    <h3 className="text-lg font-semibold text-white mb-2">Run Discharge Readiness Analysis</h3>
+                                    <p className="text-gray-400 text-sm mb-4">
+                                      The Discharge Readiness Agent will evaluate all requirements per CMS, Joint Commission, and AHRQ standards
+                                    </p>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); analyzeDischargeReadiness.mutate(patient) }}
+                                      className="btn-primary flex items-center gap-2 mx-auto"
+                                    >
+                                      <Brain size={16} />
+                                      Analyze Discharge Readiness
+                                    </button>
                     </div>
                   )}
 
