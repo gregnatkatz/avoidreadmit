@@ -19,7 +19,7 @@ router.get('/summary', async (_req, res) => {
     const totalWithContextMatch = metrics.reduce((sum, m) => sum + m.decisions_with_context_match, 0);
 
     const patterns = await prisma.dCG_ContextPattern.count({
-      where: { data_month: { lte: currentMonth }, status: 'validated' }
+      where: { data_month: { lte: currentMonth }, status: { in: ['ACTIVE', 'validated'] } }
     });
 
     res.json({
