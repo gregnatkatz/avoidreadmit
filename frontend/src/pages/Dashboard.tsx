@@ -12,20 +12,21 @@ export default function Dashboard() {
   const currentMonth = useTimelineStore((state) => state.currentMonth)
   const [persona, setPersona] = useState<PersonaType>('executive')
   
+  // Include currentMonth in query keys so data refetches when month changes
   const { data: summary } = useQuery({
-    queryKey: ['dashboard-summary'],
+    queryKey: ['dashboard-summary', currentMonth],
     queryFn: dashboardApi.getSummary,
     refetchInterval: 600000
   })
 
   const { data: trend } = useQuery({
-    queryKey: ['readmission-trend'],
+    queryKey: ['readmission-trend', currentMonth],
     queryFn: dashboardApi.getReadmissionTrend,
     refetchInterval: 600000
   })
 
     const { data: impact } = useQuery({
-      queryKey: ['context-impact'],
+      queryKey: ['context-impact', currentMonth],
       queryFn: dashboardApi.getContextImpact,
       refetchInterval: 600000
     })
@@ -33,7 +34,7 @@ export default function Dashboard() {
     // Addendum: Alerts for feedback loop
     const queryClient = useQueryClient()
     const { data: alertsData } = useQuery({
-      queryKey: ['pattern-alerts'],
+      queryKey: ['pattern-alerts', currentMonth],
       queryFn: () => addendumApi.getAlerts(),
       refetchInterval: 60000 // Refresh every minute
     })
@@ -47,14 +48,14 @@ export default function Dashboard() {
 
     // Dynamic pattern discovery from database
     const { data: patternDiscoveryData } = useQuery({
-      queryKey: ['pattern-discovery'],
+      queryKey: ['pattern-discovery', currentMonth],
       queryFn: dashboardApi.getPatternDiscovery,
       refetchInterval: 600000
     })
 
     // Dynamic decision outcomes from database
     const { data: decisionOutcomesData } = useQuery({
-      queryKey: ['decision-outcomes'],
+      queryKey: ['decision-outcomes', currentMonth],
       queryFn: dashboardApi.getDecisionOutcomes,
       refetchInterval: 600000
     })
