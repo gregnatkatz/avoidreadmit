@@ -162,7 +162,10 @@ export default function Patterns() {
 
   const patternList = patterns || []
   const candidateList = candidates || []
-  const validatedPatterns = patternList.filter((p: Pattern) => p.status === 'validated')
+  // Count patterns that are validated/active (status can be ACTIVE, VALIDATED, EMERGING, or RISK)
+  const validatedPatterns = patternList.filter((p: Pattern) => 
+    ['ACTIVE', 'VALIDATED', 'validated', 'active'].includes(p.status)
+  )
   
   // Create a map of enhanced pattern data by ID
   const enhancedMap = new Map<string, EnhancedPattern>()
