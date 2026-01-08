@@ -214,7 +214,7 @@ export default function Compare() {
           
           {isDropdownOpen && (
             <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-white/20 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-              {patients?.slice(0, 20).map((patient: Patient) => (
+              {patients?.map((patient: Patient) => (
                 <button
                   key={patient.mrn}
                   onClick={() => {

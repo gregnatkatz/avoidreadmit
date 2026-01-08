@@ -966,7 +966,7 @@ export default function Worklist() {
                               </button>
                               <button
                                 onClick={() => saveNote(patient.mrn)}
-                                disabled={overrideSelection && !overrideReason.trim()}
+                                disabled={!!overrideSelection && !overrideReason.trim()}
                                 className="px-4 py-1.5 rounded-lg text-sm bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                               >
                                 <FileText size={14} />

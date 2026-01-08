@@ -137,26 +137,39 @@ export const aiApi = {
   analyzeReadmission: async (decisionId: string) => {
     // Simulate AI readmission analysis - in production this would call the backend
     await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Use deterministic hash based on decisionId for consistent results
+    const hash = decisionId.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0)
+    const seededValue = (seed: number, index: number) => ((hash * (seed + 1) * (index + 1) * 9301 + 49297) % 233280) / 233280
+    
     const rootCauses = ['new_ailment', 'existing_worsened', 'care_gap', 'social_factors'] as const
-    const rootCause = rootCauses[Math.floor(Math.random() * rootCauses.length)]
+    const rootCauseIndex = Math.floor(seededValue(1, 0) * rootCauses.length)
+    const rootCause = rootCauses[rootCauseIndex]
+    
+    const allContributingFactors = [
+      'Caregiver availability limited to weekends only',
+      'No medical background in family support network',
+      'Transportation barriers to follow-up appointments',
+      'Medication complexity (8+ daily medications)'
+    ]
+    const factorCount = Math.floor(seededValue(2, 0) * 3) + 2
+    
+    const allPreventionInsights = [
+      'Earlier identification of caregiver limitations could have triggered home health referral',
+      'Medication teach-back was incomplete - patient demonstrated confusion',
+      'Social work consult was not ordered despite risk factors'
+    ]
+    const insightCount = Math.floor(seededValue(3, 0) * 2) + 1
+    
     return {
       rootCause,
       rootCauseDescription: rootCause === 'new_ailment' ? 'Patient developed new condition (UTI) post-discharge' :
         rootCause === 'existing_worsened' ? 'Primary condition (CHF) exacerbated due to medication non-adherence' :
         rootCause === 'care_gap' ? 'Gap in care coordination - follow-up appointment missed' :
         'Social factors - caregiver unavailable during critical recovery period',
-      contributingFactors: [
-        'Caregiver availability limited to weekends only',
-        'No medical background in family support network',
-        'Transportation barriers to follow-up appointments',
-        'Medication complexity (8+ daily medications)'
-      ].slice(0, Math.floor(Math.random() * 3) + 2),
-      preventionInsights: [
-        'Earlier identification of caregiver limitations could have triggered home health referral',
-        'Medication teach-back was incomplete - patient demonstrated confusion',
-        'Social work consult was not ordered despite risk factors'
-      ].slice(0, Math.floor(Math.random() * 2) + 1),
-      suggestedPattern: Math.random() > 0.5 ? {
+      contributingFactors: allContributingFactors.slice(0, factorCount),
+      preventionInsights: allPreventionInsights.slice(0, insightCount),
+      suggestedPattern: seededValue(4, 0) > 0.5 ? {
         title: 'Weekend-Only Caregiver Risk',
         criteria: ['caregiver_availability = weekends_only', 'medication_count >= 5'],
         expectedLift: -0.18
