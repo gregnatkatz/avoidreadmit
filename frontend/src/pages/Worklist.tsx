@@ -217,6 +217,7 @@ export default function Worklist() {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [analysisStep, setAnalysisStep] = useState<number>(0)
   const [processedPatients, setProcessedPatients] = useState<Record<string, 'approved' | 'denied' | 'review'>>({})
+  const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({})
     const analysisTriggeredRef = useRef<Set<string>>(new Set())
     const patientCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   
@@ -375,8 +376,12 @@ export default function Worklist() {
     },
         onError: (error, variables) => {
           console.error('Discharge readiness analysis failed:', error)
-          // Clear the patient from triggered ref so user can retry
-          analysisTriggeredRef.current.delete(variables.mrn)
+          // Keep the patient in triggered ref to prevent infinite retry loop
+          // Store error message so user can see what went wrong
+          setAnalysisErrors(prev => ({ 
+            ...prev, 
+            [variables.mrn]: error instanceof Error ? error.message : 'Analysis failed. Click to retry.' 
+          }))
           setAnalyzingId(null)
         }
   })
@@ -632,12 +637,24 @@ export default function Worklist() {
                                     <p className="text-gray-400 text-sm mb-4">
                                       The Discharge Readiness Agent will evaluate all requirements per CMS, Joint Commission, and AHRQ standards
                                     </p>
+                                    {analysisErrors[patient.mrn] && (
+                                      <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                                        <AlertTriangle size={16} className="inline mr-2" />
+                                        {analysisErrors[patient.mrn]}
+                                      </div>
+                                    )}
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); analyzeDischargeReadiness.mutate(patient) }}
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        // Clear error and triggered ref to allow retry
+                                        setAnalysisErrors(prev => { const next = {...prev}; delete next[patient.mrn]; return next; });
+                                        analysisTriggeredRef.current.delete(patient.mrn);
+                                        analyzeDischargeReadiness.mutate(patient);
+                                      }}
                                       className="btn-primary flex items-center gap-2 mx-auto"
                                     >
                                       <Brain size={16} />
-                                      Analyze Discharge Readiness
+                                      {analysisErrors[patient.mrn] ? 'Retry Analysis' : 'Analyze Discharge Readiness'}
                                     </button>
                     </div>
                   )}
