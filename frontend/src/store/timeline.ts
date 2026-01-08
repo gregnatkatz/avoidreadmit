@@ -21,6 +21,8 @@ const invalidateDashboardQueries = () => {
     queryClientRef.invalidateQueries({ queryKey: ['worklist'] })
     queryClientRef.invalidateQueries({ queryKey: ['decisions'] })
     queryClientRef.invalidateQueries({ queryKey: ['pattern-alerts'] })
+    queryClientRef.invalidateQueries({ queryKey: ['pattern-discovery'] })
+    queryClientRef.invalidateQueries({ queryKey: ['decision-outcomes'] })
   }
 }
 
