@@ -352,9 +352,9 @@ export default function Patterns() {
 
                         <div className="space-y-3 mb-4">
                           <div className="flex flex-wrap gap-2">
-                            {pattern.contextCriteria.map((criteria: string, i: number) => (
+                            {Array.isArray(pattern.contextCriteria) && pattern.contextCriteria.map((criteria: any, i: number) => (
                               <span key={i} className="px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs">
-                                {criteria}
+                                {typeof criteria === 'string' ? criteria : `${criteria.field}: ${criteria.operator} ${criteria.value}`}
                               </span>
                             ))}
                           </div>
