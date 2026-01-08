@@ -1,8 +1,10 @@
 # DCG Context Graph - Healthcare Decision Intelligence
 
-> **Reducing Hospital Readmissions Through AI-Powered Context Analysis**
+> **A Personal Exploration of Context Graphs and AI Learning in Healthcare**
 
-A breakthrough healthcare platform that captures the "invisible context" traditional EHR systems miss - caregiver availability, social support networks, transportation access, and other social determinants of health (SDOH) factors that determine whether patients succeed after discharge.
+A research project exploring how context graphs can capture the "invisible context" traditional EHR systems miss - caregiver availability, social support networks, transportation access, and other social determinants of health (SDOH) factors that determine whether patients succeed after discharge.
+
+*This is Greg Katz's personal project for learning about context graphs and AI agents, not a commercial product.*
 
 ![Dashboard Executive View](docs/images/dashboard.png)
 
@@ -813,9 +815,8 @@ This transforms exception handling from a compliance burden into a learning syst
 
 ## License
 
-Proprietary - Microsoft Healthcare AI Research
+MIT License - Personal Research Project
 
 ## Contact
 
 - Gregory Katz (gregory.katz@microsoft.com)
-- Healthcare AI Research Team
