@@ -227,8 +227,8 @@ export default function Compare() {
             <ChevronDown size={20} className={`text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
-          {isDropdownOpen && (
-            <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-white/20 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                    {isDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-2 bg-slate-800 border border-white/20 rounded-xl shadow-xl max-h-64 overflow-y-auto">
               {patients?.map((patient: Patient) => (
                 <button
                   key={patient.mrn}
