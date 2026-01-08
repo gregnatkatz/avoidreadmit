@@ -31,7 +31,10 @@ export async function discoverStatisticalPatterns(): Promise<CandidatePattern[]>
   // Get all completed decisions with outcomes
   const outcomes = await prisma.dCG_Outcome.findMany({
     where: {
-      outcome_success: { not: null }
+      OR: [
+        { outcome_success: true },
+        { outcome_success: false }
+      ]
     },
     include: {
       trace: {
