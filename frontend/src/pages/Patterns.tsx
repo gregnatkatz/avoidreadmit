@@ -376,9 +376,10 @@ export default function Patterns() {
         <div className="grid grid-cols-2 gap-6">
                     {patternList.map((pattern: Pattern) => {
                       const enhanced = enhancedMap.get(pattern.id)
-                      const evidence = enhanced?.selfDescribing?.evidenceStrength || 'moderate'
+                      // evidenceStrength and discoveryMethod are in the 'learning' object, not 'selfDescribing'
+                      const evidence = enhanced?.learning?.evidenceStrength || 'moderate'
                       const evidenceStyle = evidenceColors[evidence] || evidenceColors.moderate
-                      const discovery = enhanced?.selfDescribing?.discoveryMethod || 'statistical_correlation'
+                      const discovery = enhanced?.learning?.discoveryMethod || 'statistical_correlation'
                       const DiscoveryIcon = discoveryIcons[discovery]?.icon || TrendingUp
             
                       return (
