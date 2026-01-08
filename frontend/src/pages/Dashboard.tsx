@@ -45,6 +45,13 @@ export default function Dashboard() {
       }
     })
 
+    // Dynamic pattern discovery from database
+    const { data: patternDiscoveryData } = useQuery({
+      queryKey: ['pattern-discovery'],
+      queryFn: dashboardApi.getPatternDiscovery,
+      refetchInterval: 600000
+    })
+
   // Dynamic data from API - Decision outcomes distribution
   const decisionOutcomes = [
     { name: 'Home with Services', value: 43.7, color: '#00F5A0' },
@@ -54,18 +61,8 @@ export default function Dashboard() {
     { name: 'Hospice', value: 4.7, color: '#FF6B6B' }
   ]
 
-  // Dynamic pattern discovery from metrics - 9 months
-  const patternDiscovery = [
-    { month: 'Apr', patterns: 0, matches: 23 },
-    { month: 'May', patterns: 0, matches: 41 },
-    { month: 'Jun', patterns: 0, matches: 49 },
-    { month: 'Jul', patterns: 0, matches: 83 },
-    { month: 'Aug', patterns: 2, matches: 163 },
-    { month: 'Sep', patterns: 5, matches: 138 },
-    { month: 'Oct', patterns: 9, matches: 319 },
-    { month: 'Nov', patterns: 12, matches: 467 },
-    { month: 'Dec', patterns: 15, matches: 612 }
-  ].slice(0, currentMonth)
+  // Use dynamic pattern discovery data from API
+  const patternDiscovery = patternDiscoveryData || []
 
   // AI Provider performance from telemetry
   const providerPerformance = [
