@@ -72,6 +72,7 @@ export function AlertCard({
   onAcknowledge,
   compact = false,
 }: AlertCardProps) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const typeConfig = alertTypeConfig[alertType] || {
     label: alertType,
     icon: '🔔',
@@ -99,46 +100,53 @@ export function AlertCard({
     );
   }
 
+  // Collapsible card - shows summary by default, expands on click
   return (
-    <div className={`rounded-lg border ${sevConfig.bgColor} ${sevConfig.borderColor} p-4`}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">{typeConfig.icon}</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`font-medium ${sevConfig.color}`}>{typeConfig.label}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${sevConfig.bgColor} ${sevConfig.color} border ${sevConfig.borderColor}`}>
-                {severity}
-              </span>
-            </div>
-            {patternTitle && (
-              <p className="text-sm text-gray-400 mt-0.5">Pattern: {patternTitle}</p>
-            )}
-            <p className="text-sm text-gray-300 mt-2">{message}</p>
-            {details && Object.keys(details).length > 0 && (
-              <div className="mt-3 text-xs text-gray-500 space-y-1">
-                {Object.entries(details).map(([key, value]) => (
-                  <div key={key}>
-                    <span className="text-gray-400">{key}:</span>{' '}
-                    <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+    <div className={`rounded-lg border ${sevConfig.bgColor} ${sevConfig.borderColor} overflow-hidden`}>
+      <div 
+        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className="text-lg">{typeConfig.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`font-medium text-sm ${sevConfig.color}`}>{typeConfig.label}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${sevConfig.bgColor} ${sevConfig.color} border ${sevConfig.borderColor}`}>
+              {severity}
+            </span>
           </div>
-        </div>
-        <div className="text-right">
-          <span className="text-xs text-gray-500">{formattedDate}</span>
-          {onAcknowledge && (
-            <button
-              onClick={() => onAcknowledge(id)}
-              className="block mt-2 text-sm text-gray-400 hover:text-white px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
-            >
-              Acknowledge
-            </button>
+          {patternTitle && (
+            <p className="text-xs text-gray-500 truncate">Pattern: {patternTitle}</p>
           )}
         </div>
+        <span className="text-xs text-gray-500 whitespace-nowrap">{formattedDate}</span>
+        {onAcknowledge && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAcknowledge(id); }}
+            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-600 hover:border-gray-500"
+          >
+            Acknowledge
+          </button>
+        )}
+        <span className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+          ▼
+        </span>
       </div>
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-white/10">
+          <p className="text-sm text-gray-300">{message}</p>
+          {details && Object.keys(details).length > 0 && (
+            <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+              {Object.entries(details).map(([key, value]) => (
+                <div key={key}>
+                  <span className="text-gray-400">{key}:</span>{' '}
+                  <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

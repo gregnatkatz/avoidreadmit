@@ -1,5 +1,28 @@
 import { create } from 'zustand'
 import { timelineApi } from '../api/client'
+import { QueryClient } from '@tanstack/react-query'
+
+// Global query client reference for invalidation
+let queryClientRef: QueryClient | null = null
+
+export const setQueryClient = (client: QueryClient) => {
+  queryClientRef = client
+}
+
+const invalidateDashboardQueries = () => {
+  if (queryClientRef) {
+    // Invalidate all dashboard and data queries when month changes
+    queryClientRef.invalidateQueries({ queryKey: ['dashboard-summary'] })
+    queryClientRef.invalidateQueries({ queryKey: ['readmission-trend'] })
+    queryClientRef.invalidateQueries({ queryKey: ['context-impact'] })
+    queryClientRef.invalidateQueries({ queryKey: ['ai-status'] })
+    queryClientRef.invalidateQueries({ queryKey: ['context-stats'] })
+    queryClientRef.invalidateQueries({ queryKey: ['patterns'] })
+    queryClientRef.invalidateQueries({ queryKey: ['worklist'] })
+    queryClientRef.invalidateQueries({ queryKey: ['decisions'] })
+    queryClientRef.invalidateQueries({ queryKey: ['pattern-alerts'] })
+  }
+}
 
 interface TimelineStore {
   currentMonth: number
@@ -43,6 +66,8 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
     try {
       const state = await timelineApi.advance()
       set({ currentMonth: state.currentMonth })
+      // Invalidate all dashboard queries to force refetch with new month data
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false })
     }
@@ -53,6 +78,8 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
     try {
       const state = await timelineApi.goto(month)
       set({ currentMonth: state.currentMonth })
+      // Invalidate all dashboard queries to force refetch with new month data
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false })
     }
@@ -63,6 +90,8 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
     try {
       const state = await timelineApi.reset()
       set({ currentMonth: state.currentMonth })
+      // Invalidate all dashboard queries to force refetch with new month data
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false })
     }
