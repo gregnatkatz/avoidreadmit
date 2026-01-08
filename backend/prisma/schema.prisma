@@ -453,10 +453,20 @@ model DCG_ContextPattern {
   minimumConfidence       Float    @default(0.7) // Min context confidence to apply
   
   // Learning metadata (Addendum)
-  discoveryMethod         String?  // e.g., "statistical_correlation", "llm_inference"
+  discoveryMethod         String?  // e.g., "statistical_correlation", "llm_inference", "manual"
   evidenceStrength        String   @default("moderate") // "strong", "moderate", "emerging", "weak"
   lastValidated           DateTime?
   validationResults       String?  // JSON: validation details
+  hypothesis              String?  // LLM-generated explanation for why pattern works
+  supportingCaseIds       String?  // JSON array of decision IDs that support this pattern
+  
+  // Human review fields
+  approvedBy              String?
+  approvedAt              DateTime?
+  approvalNotes           String?
+  rejectedBy              String?
+  rejectedAt              DateTime?
+  rejectionReason         String?
   
   // Relations for temporal tracking
   snapshots               PatternSnapshot[]
@@ -529,6 +539,19 @@ enum AlertType {
   EMERGING_PATTERN
   CONTRADICTORY_OUTCOMES
   CONFIDENCE_DRIFT
+  PATTERN_VALIDATED
+  PATTERN_PROMOTED
+  PATTERN_DEPRECATED
+}
+
+// Enum: Pattern Status for Pattern Lifecycle
+enum PatternStatus {
+  CANDIDATE    // Discovered, awaiting human review
+  EMERGING     // Approved, collecting evidence
+  VALIDATED    // Met statistical thresholds
+  ACTIVE       // In production use
+  DEPRECATED   // Demoted due to poor performance
+  REJECTED     // Human rejected
 }
 
 // Policy Version - Track discharge criteria versions over time

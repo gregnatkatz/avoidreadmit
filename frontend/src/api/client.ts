@@ -107,9 +107,50 @@ export const contextApi = {
   getStats: () => api.get<ContextStats>('/context/stats').then(r => r.data)
 }
 
+export interface PatternCandidate {
+  id: string
+  patternNumber: string
+  title: string
+  description: string
+  contextCriteria: any[]
+  sampleSize: number
+  successRate: number
+  lift: number
+  pValue: number
+  discoveryMethod: string
+  hypothesis: string
+  createdAt: string
+}
+
+export interface PatternDiscoveryResult {
+  success: boolean
+  message: string
+  result: {
+    statisticalCandidates: number
+    llmCandidates: number
+    validated: number
+    promoted: number
+    deprecated: number
+    errors: string[]
+  }
+}
+
+export interface PatternLifecycleStats {
+  byStatus: Record<string, number>
+  byMethod: Record<string, number>
+}
+
 export const patternsApi = {
   getPatterns: () => api.get('/patterns').then(r => r.data),
-  getPattern: (id: string) => api.get(`/patterns/${id}`).then(r => r.data)
+  getPattern: (id: string) => api.get(`/patterns/${id}`).then(r => r.data),
+  getCandidates: () => api.get<PatternCandidate[]>('/patterns/candidates').then(r => r.data),
+  approveCandidate: (id: string, data: { name?: string; notes?: string; approvedBy?: string }) => 
+    api.post(`/patterns/${id}/approve`, data).then(r => r.data),
+  rejectCandidate: (id: string, data: { reason: string; rejectedBy?: string }) => 
+    api.post(`/patterns/${id}/reject`, data).then(r => r.data),
+  validatePattern: (id: string) => api.post(`/patterns/${id}/validate`).then(r => r.data),
+  runDiscovery: () => api.post<PatternDiscoveryResult>('/patterns/discover').then(r => r.data),
+  getLifecycleStats: () => api.get<PatternLifecycleStats>('/patterns/lifecycle').then(r => r.data)
 }
 
 // Addendum API - Temporal Context, Provenance, Alerts, Enhanced Patterns
