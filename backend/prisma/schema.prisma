@@ -348,6 +348,15 @@ model DCG_SocialSnapshot {
   decision_trace DCG_DecisionTrace?
 }
 
+// Enum: Exception Types for Decision Overrides
+enum ExceptionType {
+  FAMILY_CAREGIVER_OVERRIDE  // RN daughter, full-time availability, etc.
+  PATIENT_REFUSAL            // Patient declined recommended disposition
+  RESOURCE_UNAVAILABLE       // SNF bed not available, insurance denial
+  CLINICAL_IMPROVEMENT       // Patient improved beyond policy threshold
+  PHYSICIAN_OVERRIDE         // Attending disagrees with policy recommendation
+}
+
 // DCG Decision Trace
 model DCG_DecisionTrace {
   id                   String   @id @default(uuid())
@@ -366,12 +375,21 @@ model DCG_DecisionTrace {
   policy_id            String?
   policy_recommendation String?
   followed_policy      Boolean
-  exception_type       String?
-  rationale            String?
+  
+  // Exception Workflow (Enhanced)
+  exception_type       String?  // ExceptionType enum value: FAMILY_CAREGIVER_OVERRIDE, PATIENT_REFUSAL, etc.
+  exception_rationale  String?  // Detailed rationale for why exception was taken
+  precedent_cited_id   String?  // FK to another DCG_DecisionTrace used as precedent
+  precedent_cited      DCG_DecisionTrace? @relation("PrecedentCitation", fields: [precedent_cited_id], references: [id])
+  cited_as_precedent   DCG_DecisionTrace[] @relation("PrecedentCitation")
+  
+  // Legacy fields (kept for backward compatibility)
+  rationale            String?  // General rationale (deprecated, use exception_rationale)
   evidence_cited       String?
   concerns             String?
   mitigations          String?
-  cited_precedent_ids  String
+  cited_precedent_ids  String   // Legacy: comma-separated IDs
+  
   data_month           Int
   created_at           DateTime @default(now())
 
@@ -391,6 +409,7 @@ model DCG_DecisionTrace {
   cited_by  DCG_ContextMatch[] @relation("CitedDecision")
   matches   DCG_ContextMatch[] @relation("MatchingDecision")
   patternSnapshots DecisionPatternSnapshot[]
+  approvals DecisionApproval[]  // Approval chain for exceptions
 }
 
 // DCG Outcome
@@ -410,6 +429,31 @@ model DCG_Outcome {
   assessed_at         DateTime?
   data_month          Int
   created_at          DateTime  @default(now())
+}
+
+// Decision Approval - Approval chain for exception decisions
+model DecisionApproval {
+  id                String   @id @default(uuid())
+  decision_id       String
+  decision          DCG_DecisionTrace @relation(fields: [decision_id], references: [id])
+  
+  // Approval details
+  approver_id       String
+  approver_name     String
+  approver_role     String   // "case_manager", "attending_physician", "medical_director", "department_head"
+  authority_level   Int      // 1=CM, 2=Attending, 3=Medical Director, 4=CMO
+  
+  // Approval decision
+  approval_status   String   // "approved", "denied", "escalated", "pending"
+  conditions        String?  // JSON: Any conditions attached to approval
+  comments          String?
+  
+  // Timestamps
+  requested_at      DateTime @default(now())
+  responded_at      DateTime?
+  
+  @@index([decision_id, authority_level])
+  @@index([approver_id, approval_status])
 }
 
 // DCG Context Match
