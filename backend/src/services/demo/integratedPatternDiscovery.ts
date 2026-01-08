@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { callAI } from '../ai/client'
 
 const prisma = new PrismaClient()
 
@@ -203,6 +204,86 @@ export async function runIntegratedPatternDiscovery(upToMonth: number): Promise<
     existingConditions.add(normalizedConditions)
     
     console.log(`[Integrated Discovery] Created ${patternNumber}: ${patternName} (lift: ${(candidate.lift * 100).toFixed(1)}%)`)
+  }
+
+  // 12. Run LLM-based pattern discovery (only after month 6 to have enough data)
+  if (upToMonth >= 6) {
+    try {
+      console.log(`[Integrated Discovery] Running LLM-based pattern discovery...`)
+      
+      // Get names of existing patterns to avoid duplicates
+      const existingPatternNames = existingPatterns.map(p => p.title)
+      
+      // Run LLM discovery
+      const llmHypotheses = await runLLMPatternDiscovery(decisions, baselineSuccessRate, existingPatternNames)
+      
+      if (llmHypotheses.length > 0) {
+        // Validate LLM hypotheses against actual data
+        const validatedLLMPatterns = await validateLLMHypotheses(llmHypotheses, decisions, baselineSuccessRate)
+        
+        // Create patterns from validated LLM hypotheses
+        for (const candidate of validatedLLMPatterns) {
+          const conditionsJson = JSON.stringify(candidate.features.map(f => ({
+            field: f.field,
+            operator: f.operator,
+            value: f.value
+          })))
+          
+          const normalizedConditions = normalizeConditions(conditionsJson)
+          
+          if (existingConditions.has(normalizedConditions)) {
+            continue
+          }
+
+          const patternCount = existingPatterns.length + newPatterns.length
+          const patternNumber = `PAT-${String(patternCount + 1).padStart(4, '0')}`
+          
+          const patternName = generatePatternName(candidate)
+          const isRisk = candidate.lift < 0
+          
+          const pattern = await prisma.dCG_ContextPattern.create({
+            data: {
+              pattern_number: patternNumber,
+              title: patternName,
+              description: generatePatternDescription(candidate),
+              context_criteria: conditionsJson,
+              supporting_trace_ids: JSON.stringify([]),
+              sample_size: candidate.totalCount,
+              success_count: candidate.successCount,
+              success_rate: candidate.successRate,
+              baseline_rate: baselineSuccessRate,
+              lift_vs_baseline: candidate.lift,
+              p_value: candidate.pValue,
+              statistically_significant: candidate.pValue <= 0.05,
+              status: isRisk ? 'RISK' : 'ACTIVE',
+              data_month: upToMonth,
+              discoveryMethod: 'llm_hypothesis',  // Mark as LLM-discovered
+              evidenceStrength: candidate.totalCount >= 100 ? 'strong' : 'moderate',
+              minimumConfidence: 0.7,
+              applicabilityRules: JSON.stringify({
+                minSampleSize: MIN_SAMPLE_SIZE,
+                minLift: MIN_LIFT,
+                maxPValue: MAX_P_VALUE
+              }),
+              validationResults: JSON.stringify({
+                confidenceInterval: candidate.confidenceInterval,
+                pValue: candidate.pValue,
+                sampleSize: candidate.totalCount,
+                discoveredBy: 'LLM'
+              })
+            }
+          })
+
+          newPatterns.push(pattern)
+          existingConditions.add(normalizedConditions)
+          
+          console.log(`[LLM Discovery] Created ${patternNumber}: ${patternName} (lift: ${(candidate.lift * 100).toFixed(1)}%)`)
+        }
+      }
+    } catch (error) {
+      console.error('[LLM Discovery] Error during LLM pattern discovery:', error)
+      // Continue with statistical patterns even if LLM fails
+    }
   }
 
   return newPatterns
@@ -533,4 +614,176 @@ function generatePatternDescription(pattern: CandidatePattern): string {
   return `Patients matching this pattern show ${liftPercent}% better outcomes than baseline`
 }
 
-export { CandidatePattern, ContextFeature }
+// LLM-based pattern discovery - uses AI to analyze outcome data and propose hypotheses
+interface LLMPatternHypothesis {
+  name: string
+  description: string
+  criteria: { field: string; operator: string; value: string | number | boolean }[]
+  rationale: string
+  expectedLift: number
+}
+
+export async function runLLMPatternDiscovery(
+  decisions: DecisionWithContext[],
+  baselineSuccessRate: number,
+  existingPatterns: string[]
+): Promise<LLMPatternHypothesis[]> {
+  console.log(`[LLM Discovery] Analyzing ${decisions.length} decisions for pattern hypotheses...`)
+  
+  // Sample decisions for LLM analysis (limit to avoid token limits)
+  const sampleSize = Math.min(100, decisions.length)
+  const sampledDecisions = decisions
+    .sort(() => Math.random() - 0.5)
+    .slice(0, sampleSize)
+  
+  // Separate successes and failures for analysis
+  const successes = sampledDecisions.filter(d => d.outcome)
+  const failures = sampledDecisions.filter(d => !d.outcome)
+  
+  // Create summary statistics for LLM
+  const contextSummary = summarizeContextData(sampledDecisions)
+  
+  const systemPrompt = `You are a healthcare data scientist analyzing patient discharge outcomes to discover patterns that predict successful transitions (no readmission within 30 days).
+
+Your task is to identify NEW patterns in the data that could help predict which patients will have successful outcomes. Focus on combinations of context factors that appear more frequently in successful cases.
+
+Available context fields:
+- caregiver_relationship: Spouse, Child, Sibling, Parent, Other Family, Friend, Professional
+- caregiver_medical_background: true/false (has medical training)
+- caregiver_proximity_minutes: number (travel time to patient)
+- caregiver_availability: Full-time, Part-time, Weekends only, As needed
+- caregiver_age: number
+- living_situation: Lives alone, Lives with spouse, Lives with family, Assisted living, etc.
+- has_transportation: true/false
+- readmit_count_12m: number (prior readmissions in 12 months)
+- adl_score: number 0-24 (activities of daily living, higher = more independent)
+- los_at_decision: number (length of stay in days)
+
+Respond with a JSON array of pattern hypotheses. Each hypothesis should have:
+- name: Short descriptive name
+- description: Why this pattern might predict success
+- criteria: Array of {field, operator, value} conditions (operators: eq, lte, gte, lt, gt)
+- rationale: Clinical reasoning for why this pattern matters
+- expectedLift: Estimated improvement over baseline (0.1 = 10% better)
+
+Focus on patterns NOT already discovered: ${existingPatterns.join(', ') || 'none yet'}`
+
+  const userPrompt = `Baseline success rate: ${(baselineSuccessRate * 100).toFixed(1)}%
+Sample size: ${sampleSize} decisions (${successes.length} successes, ${failures.length} failures)
+
+Context distribution in successful cases:
+${JSON.stringify(contextSummary.successes, null, 2)}
+
+Context distribution in failed cases:
+${JSON.stringify(contextSummary.failures, null, 2)}
+
+Identify 2-3 NEW pattern hypotheses that could predict successful outcomes. Return ONLY valid JSON array.`
+
+  try {
+    const response = await callAI(userPrompt, systemPrompt)
+    
+    // Parse JSON response
+    const jsonMatch = response.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      console.log('[LLM Discovery] No valid JSON array in response')
+      return []
+    }
+    
+    const hypotheses: LLMPatternHypothesis[] = JSON.parse(jsonMatch[0])
+    console.log(`[LLM Discovery] Generated ${hypotheses.length} pattern hypotheses`)
+    
+    return hypotheses
+  } catch (error) {
+    console.error('[LLM Discovery] Error calling AI:', error)
+    return []
+  }
+}
+
+function summarizeContextData(decisions: DecisionWithContext[]): { successes: Record<string, any>; failures: Record<string, any> } {
+  const successes = decisions.filter(d => d.outcome)
+  const failures = decisions.filter(d => !d.outcome)
+  
+  const summarize = (group: DecisionWithContext[]) => {
+    if (group.length === 0) return {}
+    
+    const summary: Record<string, any> = {}
+    
+    // Categorical fields - count distributions
+    const categoricalFields = ['caregiver_relationship', 'living_situation', 'caregiver_availability']
+    for (const field of categoricalFields) {
+      const counts: Record<string, number> = {}
+      for (const d of group) {
+        const val = d.context[field]
+        if (val) counts[val] = (counts[val] || 0) + 1
+      }
+      summary[field] = counts
+    }
+    
+    // Boolean fields - percentage true
+    const booleanFields = ['caregiver_medical_background', 'has_transportation']
+    for (const field of booleanFields) {
+      const trueCount = group.filter(d => d.context[field] === true).length
+      summary[field] = `${((trueCount / group.length) * 100).toFixed(0)}% true`
+    }
+    
+    // Numeric fields - averages
+    const numericFields = ['caregiver_proximity_minutes', 'caregiver_age', 'adl_score', 'readmit_count_12m', 'los_at_decision']
+    for (const field of numericFields) {
+      const values = group.map(d => d.context[field]).filter(v => typeof v === 'number')
+      if (values.length > 0) {
+        const avg = values.reduce((a, b) => a + b, 0) / values.length
+        summary[field] = `avg: ${avg.toFixed(1)}`
+      }
+    }
+    
+    return summary
+  }
+  
+  return {
+    successes: summarize(successes),
+    failures: summarize(failures)
+  }
+}
+
+// Validate LLM hypotheses against actual data
+export async function validateLLMHypotheses(
+  hypotheses: LLMPatternHypothesis[],
+  decisions: DecisionWithContext[],
+  baselineSuccessRate: number
+): Promise<CandidatePattern[]> {
+  const validatedPatterns: CandidatePattern[] = []
+  
+  for (const hypothesis of hypotheses) {
+    // Convert hypothesis criteria to ContextFeatures
+    const features: ContextFeature[] = hypothesis.criteria.map(c => ({
+      field: c.field,
+      operator: c.operator as 'eq' | 'lte' | 'gte' | 'lt' | 'gt',
+      value: c.value,
+      displayValue: `${c.operator} ${c.value}`
+    }))
+    
+    // Find matching decisions
+    const matching = decisions.filter(d => 
+      features.every(f => matchesFeature(d.context, f))
+    )
+    
+    if (matching.length < MIN_SAMPLE_SIZE) {
+      console.log(`[LLM Validation] Hypothesis "${hypothesis.name}" has insufficient sample (${matching.length})`)
+      continue
+    }
+    
+    // Calculate actual statistics
+    const candidate = createCandidate(features, matching, baselineSuccessRate)
+    
+    if (candidate && candidate.lift >= MIN_LIFT && candidate.pValue <= MAX_P_VALUE) {
+      console.log(`[LLM Validation] Validated: "${hypothesis.name}" - lift: ${(candidate.lift * 100).toFixed(1)}%`)
+      validatedPatterns.push(candidate)
+    } else if (candidate) {
+      console.log(`[LLM Validation] Rejected: "${hypothesis.name}" - lift: ${(candidate.lift * 100).toFixed(1)}%, p: ${candidate.pValue.toFixed(3)}`)
+    }
+  }
+  
+  return validatedPatterns
+}
+
+export { CandidatePattern, ContextFeature, DecisionWithContext }
