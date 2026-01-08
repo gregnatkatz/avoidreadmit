@@ -1,6 +1,21 @@
 import { PrismaClient } from '@prisma/client';
-import { generateTraceNumber, randomInt, randomChoice, randomBoolean, getMonthDate } from './utils';
+import { generateTraceNumber, randomInt, randomChoice, randomBoolean, getMonthDate, weightedRandomChoice } from './utils';
 import { DEMO_PATIENTS, MONTHLY_DECISIONS, DISPOSITIONS, RICH_CONTEXT_PER_QUARTER } from './constants';
+
+// Industry-standard discharge disposition weights based on AHRQ Statistical Brief #205
+// For a readmission-focused population (higher acuity than general hospital population):
+// - Home (self-care): ~35% - patients who can manage independently
+// - Home with Home Health: ~25% - largest PAC category per AHRQ data
+// - SNF: ~20% - second largest PAC category
+// - Rehab: ~10% - for patients needing intensive rehabilitation
+// - LTAC: ~5% - for medically complex patients
+// - Hospice: ~5% - for end-of-life care
+const DISPOSITION_WEIGHTS = [0.35, 0.25, 0.20, 0.10, 0.05, 0.05];
+
+// Helper function to get weighted disposition
+function getWeightedDisposition(): string {
+  return weightedRandomChoice(DISPOSITIONS, DISPOSITION_WEIGHTS);
+}
 
 export async function seedBulkDecisions(prisma: PrismaClient) {
   const patients = await prisma.epic_Patient.findMany();
@@ -104,8 +119,8 @@ export async function seedBulkDecisions(prisma: PrismaClient) {
         snapshot_datetime: decisionDate
       });
 
-      // Decision trace
-      const disposition = randomChoice(DISPOSITIONS);
+      // Decision trace - use industry-standard weighted distribution
+      const disposition = getWeightedDisposition();
       decisionTraces.push({
         id: traceId,
         trace_number: traceNumber,
@@ -420,6 +435,104 @@ async function seedPatterns(prisma: PrismaClient) {
       status: 'validated',
       data_month: 9
     },
+    // Additional RISK patterns (negative lift) - Month 7-8
+    {
+      pattern_number: 'PAT-0016',
+      title: 'Transportation Barriers Risk',
+      description: 'RISK: Patients with transportation barriers show 18% HIGHER readmission rates - arrange transport assistance',
+      context_criteria: JSON.stringify(['sdoh_transport = true']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 280,
+      success_count: 131,
+      success_rate: 0.47,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.18,
+      p_value: 0.003,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 7
+    },
+    {
+      pattern_number: 'PAT-0017',
+      title: 'Lives Alone High Risk',
+      description: 'RISK: Patients living alone without caregiver show 21% HIGHER readmission rates - consider SNF or home health',
+      context_criteria: JSON.stringify(['living_situation = Lives alone', 'has_caregiver = false']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 420,
+      success_count: 185,
+      success_rate: 0.44,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.21,
+      p_value: 0.0005,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 7
+    },
+    {
+      pattern_number: 'PAT-0018',
+      title: 'Multiple Prior Readmissions Risk',
+      description: 'RISK: Patients with 2+ readmissions in past 12 months show 25% HIGHER readmission rates - intensive follow-up needed',
+      context_criteria: JSON.stringify(['readmit_count_12m >= 2']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 310,
+      success_count: 124,
+      success_rate: 0.40,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.25,
+      p_value: 0.0002,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 8
+    },
+    {
+      pattern_number: 'PAT-0019',
+      title: 'Part-Time Caregiver Risk',
+      description: 'RISK: Part-time caregiver availability correlates with 15% HIGHER readmission rates vs full-time',
+      context_criteria: JSON.stringify(['caregiver_availability = part-time']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 350,
+      success_count: 175,
+      success_rate: 0.50,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.15,
+      p_value: 0.008,
+      statistically_significant: true,
+      status: 'validated',
+      data_month: 8
+    },
+    // Emerging patterns (candidates for review)
+    {
+      pattern_number: 'PAT-0020',
+      title: 'Low ADL Score Risk (Emerging)',
+      description: 'EMERGING: Patients with ADL score < 14 may have 16% higher readmission risk - needs validation',
+      context_criteria: JSON.stringify(['adl_score < 14']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 180,
+      success_count: 88,
+      success_rate: 0.49,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.16,
+      p_value: 0.02,
+      statistically_significant: true,
+      status: 'emerging',
+      data_month: 9
+    },
+    {
+      pattern_number: 'PAT-0021',
+      title: 'Extended LOS Risk (Emerging)',
+      description: 'EMERGING: Patients with LOS > 10 days may have 14% higher readmission risk - needs validation',
+      context_criteria: JSON.stringify(['los_at_decision > 10']),
+      supporting_trace_ids: JSON.stringify([]),
+      sample_size: 150,
+      success_count: 77,
+      success_rate: 0.51,
+      baseline_rate: 0.65,
+      lift_vs_baseline: -0.14,
+      p_value: 0.03,
+      statistically_significant: true,
+      status: 'emerging',
+      data_month: 9
+    },
     {
       pattern_number: 'PAT-0015',
       title: 'Comprehensive Support Network',
@@ -439,5 +552,5 @@ async function seedPatterns(prisma: PrismaClient) {
   ];
 
   await prisma.dCG_ContextPattern.createMany({ data: patterns });
-  console.log('Created 15 context patterns across months 5-9');
+  console.log('Created 21 context patterns across months 5-9 (15 validated + 4 risk patterns + 2 emerging)');
 }
