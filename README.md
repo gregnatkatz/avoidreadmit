@@ -10,16 +10,34 @@ A healthcare decision intelligence platform that uses AI-powered context graph a
 - [Key Results](#key-results)
 - [Features](#features)
 - [Technical Architecture](#technical-architecture)
+- [Data Model](#data-model)
+- [Context Extraction](#context-extraction)
+- [AI Integration](#ai-integration)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
-- [Data Model](#data-model)
-- [AI Integration](#ai-integration)
+- [Roadmap](#roadmap)
 
 ## Overview
 
-The DCG (Decision Context Graph) Context Graph system captures ambient context from patient interactions that traditional EHR systems miss. This includes caregiver availability, social support systems, transportation access, living situations, and other social determinants of health (SDOH) factors that significantly impact discharge success.
+The DCG (Decision Context Graph) system captures context from patient interactions that traditional EHR systems miss. This includes caregiver availability, social support systems, transportation access, living situations, and other social determinants of health (SDOH) factors that significantly impact discharge success.
 
-The system uses a multi-agent AI architecture to extract context from ambient voice transcription, match patterns against historical cases, discover new patterns that predict successful outcomes, and generate recommendations for case managers.
+The system extracts structured context from existing clinical documentation—nursing notes, case management notes, social work assessments, and therapy evaluations—using NLP and LLM-based extraction. No additional hardware or ambient recording is required for the core functionality.
+
+The system uses a multi-agent AI architecture to extract context from clinical documentation, match patterns against historical cases, discover new patterns that predict successful outcomes, and generate recommendations for case managers.
+
+### What is a Context Graph?
+
+A context graph differs from a traditional knowledge graph. Rather than mapping static entity relationships, a context graph captures **decision traces**—the why behind decisions that becomes searchable precedent for AI agents.
+
+> "A context graph is a living record of decision traces stitched across entities and time so precedent becomes searchable."
+> — Foundation Capital, "AI's Trillion-Dollar Opportunity: Context Graphs" (Dec 2025)
+
+This system implements the context graph paradigm by capturing:
+- **Decision traces** with full reasoning chains
+- **Exception and override tracking** with required justification
+- **Temporal context** showing what was true when decisions were made
+- **Pattern discovery** from outcome data
+- **Precedent search** across historical cases
 
 ## Key Results
 
@@ -85,6 +103,13 @@ Track all discharge decisions with AI recommendations and outcomes.
 
 Decision trace table shows Trace ID, Patient MRN, Decision (disposition type), Decision Maker (physician), Policy (Followed or Exception), and Outcome (Success, Readmitted, or Pending).
 
+Each decision captures:
+- AI recommendation with confidence score
+- Human decision and reasoning
+- Patterns applied at decision time
+- Context snapshot (frozen state)
+- Outcome tracking for feedback loops
+
 ### Patterns
 
 Browse all AI-discovered context graph patterns with statistical validation.
@@ -99,6 +124,8 @@ Browse all AI-discovered context graph patterns with statistical validation.
 | PAT-0008 | 0 readmissions in past 12 months | 88% | +23% |
 | PAT-0001 | Caregivers with medical training | 84% | +19% |
 | PAT-0014 | RISK: Caregivers aged 65+ with health issues | 42% | -23% |
+
+Patterns are discovered through statistical analysis and LLM-based inference on outcome data, then validated against significance thresholds before promotion to active use.
 
 ### AI Activity
 
@@ -252,27 +279,93 @@ APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=xxx;IngestionEndpoint=
 
 ## Data Model
 
-### Ambient Context Sources
+### Context Sources
 
-| Source | Description |
-|--------|-------------|
-| Nurse Bedside Conversations | Informal discussions about patient status |
-| Family Discussions | Caregiver availability, concerns, preferences |
-| Care Coordination Meetings | Multi-disciplinary team discussions |
-| Social Work Assessments | SDOH factors, support systems |
-| PT/OT Sessions | Functional status, mobility, ADL scores |
+The DCG system extracts SDOH and caregiver context from existing clinical documentation. No additional hardware or ambient recording is required—the data already exists in the EHR.
+
+| Source | EHR Location | Extraction Method |
+|--------|--------------|-------------------|
+| Nursing Notes | Flowsheets, progress notes | NLP extraction |
+| Case Management Notes | Discharge planning documentation | NLP extraction |
+| Care Coordination Notes | Interdisciplinary team notes | NLP extraction |
+| Social Work Assessments | Social work evaluations, SDOH screening | NLP + structured data |
+| PT/OT Sessions | Therapy notes, ADL assessments | NLP + structured scores |
 
 ### Key Context Factors
 
-| Factor | Description |
-|--------|-------------|
-| Caregiver Medical Background | Whether caregiver has medical training |
-| Caregiver Proximity | Distance from patient's home (minutes) |
-| Caregiver Availability | Full-time, part-time, weekends only |
-| Caregiver Relationship | Spouse, child, sibling, friend |
-| Living Situation | Lives alone, with family, assisted living |
-| Transportation Access | Own vehicle, public transit, barriers |
-| Patient Preferences | Stated preference for home vs facility |
+| Factor | Description | Source |
+|--------|-------------|--------|
+| Caregiver Medical Background | Whether caregiver has medical training | Case management, nursing notes |
+| Caregiver Proximity | Distance from patient's home (minutes) | Social work, discharge planning |
+| Caregiver Availability | Full-time, part-time, weekends only | Case management notes |
+| Caregiver Relationship | Spouse, child, sibling, friend | Any clinical note |
+| Living Situation | Lives alone, with family, assisted living | Social work assessment |
+| Transportation Access | Own vehicle, public transit, barriers | SDOH screening, case management |
+| Home Environment | Single-story, stairs, accessibility | PT/OT notes, social work |
+| Prior Readmissions | Count in past 12 months | EHR structured data |
+| ADL Score | Activities of daily living assessment | PT/OT structured data |
+| Patient Preference | Stated preference for home vs facility | Nursing notes, case management |
+
+### Integration Options
+
+The system is designed to integrate with existing EHR infrastructure:
+
+| EHR | Integration Method |
+|-----|-------------------|
+| Epic | FHIR R4 APIs, CDS Hooks, Cosmos DB sync |
+| Cerner | FHIR APIs, HealtheIntent |
+| MEDITECH | FHIR APIs, Data Repository |
+
+## Context Extraction
+
+### NLP Pipeline
+
+Clinical documentation is processed through an NLP pipeline to extract structured context:
+
+```
+Case Manager Note:
+"Daughter is an RN, lives 10 min away, taking FMLA for full-time
+ caregiving. Transportation arranged. Single-story home."
+
+                      |
+                      v
+            ┌─────────────────┐
+            │  NLP Extraction │
+            │  (Azure OpenAI) │
+            └─────────────────┘
+                      |
+                      v
+{
+  caregiverRelationship: "daughter",
+  caregiverMedicalBackground: true,
+  caregiverProximity: 10,
+  caregiverAvailability: "full-time",
+  transportationAccess: "arranged",
+  homeEnvironment: "single-story"
+}
+```
+
+### Ambient Clinical Intelligence (Future Enhancement)
+
+As ambient clinical intelligence technology matures, the system can incorporate real-time context capture from patient interactions. Technologies like **Microsoft Dragon Copilot** (Nuance DAX) are now deployed at 150+ health systems for physician documentation and expanding to nursing workflows.
+
+Ambient AI provides additional access points for context graph pattern recognition:
+
+| Ambient Source | Technology | Status |
+|----------------|------------|--------|
+| Physician-Patient Conversations | Dragon Copilot / DAX | Available now (150+ health systems) |
+| Nursing Bedside Interactions | Dragon Copilot for Nurses | GA December 2025 |
+| Family Discussions | Future integration | Planned |
+| Care Coordination Meetings | Future integration | Planned |
+| PT/OT Sessions | Future integration | Planned |
+
+When ambient capture is available, the system can:
+- Capture caregiver context in real-time during family meetings
+- Extract SDOH factors from natural conversation vs. structured questionnaires
+- Improve confidence scoring with direct observation vs. secondary documentation
+- Enable proactive pattern matching during the encounter (not just at discharge)
+
+The architecture is designed to incorporate ambient sources as they become available, with the NLP extraction pipeline serving as the foundation that works today.
 
 ## AI Integration
 
@@ -287,6 +380,49 @@ All AI calls are instrumented with Azure Application Insights using OpenTelemetr
 | gen_ai.usage.input_tokens | Prompt token count |
 | gen_ai.usage.output_tokens | Completion token count |
 | gen_ai.response.finish_reason | Completion reason |
+
+### Context Graph Principles
+
+This implementation follows the context graph paradigm as defined in December 2025:
+
+| Principle | Implementation |
+|-----------|----------------|
+| Decision traces as first-class objects | DischargeDecision with full reasoning chain |
+| Precedent becomes searchable | Pattern comparison across historical cases |
+| Exception tracking | Override reasons required and audited |
+| Temporal context | Patterns and policy versioned at decision time |
+| Autonomous learning | Pattern discovery from unexplained successes |
+
+## Roadmap
+
+### Current (v1.0)
+- Context extraction from clinical documentation
+- Pattern matching on SDOH factors
+- Decision trace capture with outcomes
+- AI-powered discharge recommendations
+- Case manager workflow with overrides
+- 9-month demo progression
+
+### Planned (v1.1)
+- Temporal context versioning (point-in-time queries)
+- Provenance & confidence scoring per source
+- Automated pattern discovery from outcomes
+- Feedback loops for pattern validation/demotion
+- Conflict resolution for contradictory context
+
+### Future (v2.0)
+- Real-time ambient context integration (Dragon Copilot)
+- Multi-site pattern federation
+- FHIR-native CDS Hooks deployment
+- Patient-reported outcome integration
+- Post-discharge monitoring feedback
+
+## References
+
+- Foundation Capital: ["AI's trillion-dollar opportunity: Context graphs"](https://foundationcapital.com/context-graphs-ais-trillion-dollar-opportunity/) (Dec 22, 2025)
+- TrustGraph: ["The Context Graph Manifesto"](https://trustgraph.ai/news/context-graph-manifesto/) (Dec 31, 2025)
+- Microsoft: [Dragon Copilot for Healthcare](https://www.microsoft.com/en-us/health-solutions/clinical-workflow/dragon-copilot)
+- CMS: [SDOH Screening Requirements](https://www.cms.gov/priorities/health-equity/social-determinants-of-health) (2024-2025)
 
 ## License
 
