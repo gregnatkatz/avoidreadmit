@@ -52,8 +52,15 @@ export default function Dashboard() {
       refetchInterval: 600000
     })
 
-  // Dynamic data from API - Decision outcomes distribution
-  const decisionOutcomes = [
+    // Dynamic decision outcomes from database
+    const { data: decisionOutcomesData } = useQuery({
+      queryKey: ['decision-outcomes'],
+      queryFn: dashboardApi.getDecisionOutcomes,
+      refetchInterval: 600000
+    })
+
+  // Use dynamic decision outcomes data from API (with fallback)
+  const decisionOutcomes = decisionOutcomesData || [
     { name: 'Home with Services', value: 43.7, color: '#00F5A0' },
     { name: 'SNF', value: 24.2, color: '#00D1FF' },
     { name: 'Rehab', value: 16.1, color: '#FFB800' },

@@ -83,12 +83,19 @@ export interface PatternDiscoveryData {
   matches: number
 }
 
+export interface DecisionOutcomeData {
+  name: string
+  value: number
+  color: string
+}
+
 export const dashboardApi = {
   getSummary: () => api.get<DashboardSummary>('/dashboard/summary').then(r => r.data),
   getReadmissionTrend: () => api.get<ReadmissionTrend[]>('/dashboard/readmission-trend').then(r => r.data),
   getContextImpact: () => api.get<ContextImpact>('/dashboard/context-impact').then(r => r.data),
   getCostSavings: () => api.get('/dashboard/cost-savings').then(r => r.data),
-  getPatternDiscovery: () => api.get<PatternDiscoveryData[]>('/dashboard/pattern-discovery').then(r => r.data)
+  getPatternDiscovery: () => api.get<PatternDiscoveryData[]>('/dashboard/pattern-discovery').then(r => r.data),
+  getDecisionOutcomes: () => api.get<DecisionOutcomeData[]>('/dashboard/decision-outcomes').then(r => r.data)
 }
 
 export const timelineApi = {
