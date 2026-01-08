@@ -26,10 +26,18 @@ const invalidateDashboardQueries = () => {
   }
 }
 
+interface ProgressStep {
+  id: string
+  label: string
+  status: 'pending' | 'running' | 'completed'
+}
+
 interface TimelineStore {
   currentMonth: number
   totalMonths: number
   isLoading: boolean
+  progressSteps: ProgressStep[]
+  showProgress: boolean
   fetchState: () => Promise<void>
   advanceMonth: () => Promise<void>
   gotoMonth: (month: number) => Promise<void>
@@ -48,10 +56,50 @@ const MONTH_LABELS = [
   'December 2025'
 ]
 
-export const useTimelineStore = create<TimelineStore>((set) => ({
+const createProgressSteps = (action: 'advance' | 'goto' | 'reset'): ProgressStep[] => {
+  if (action === 'reset') {
+    return [
+      { id: 'reset', label: 'Resetting demo to Month 1...', status: 'pending' },
+      { id: 'clear', label: 'Clearing existing data...', status: 'pending' },
+      { id: 'seed', label: 'Seeding baseline data...', status: 'pending' },
+      { id: 'complete', label: 'Reset complete!', status: 'pending' }
+    ]
+  }
+  return [
+    { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
+    { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
+    { id: 'analyze', label: 'Analyzing patterns in data...', status: 'pending' },
+    { id: 'discover', label: 'Running pattern discovery...', status: 'pending' },
+    { id: 'complete', label: 'Month transition complete!', status: 'pending' }
+  ]
+}
+
+const simulateProgress = async (set: any, steps: ProgressStep[]) => {
+  for (let i = 0; i < steps.length; i++) {
+    // Mark current step as running
+    set((state: TimelineStore) => ({
+      progressSteps: state.progressSteps.map((s, idx) => ({
+        ...s,
+        status: idx === i ? 'running' : idx < i ? 'completed' : 'pending'
+      }))
+    }))
+    // Wait a bit to show progress (except for last step)
+    if (i < steps.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 400))
+    }
+  }
+  // Mark all as completed
+  set((state: TimelineStore) => ({
+    progressSteps: state.progressSteps.map(s => ({ ...s, status: 'completed' as const }))
+  }))
+}
+
+export const useTimelineStore = create<TimelineStore>((set, get) => ({
   currentMonth: 1,
   totalMonths: 9,
   isLoading: false,
+  progressSteps: [],
+  showProgress: false,
 
   fetchState: async () => {
     set({ isLoading: true })
@@ -64,38 +112,52 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   },
 
   advanceMonth: async () => {
-    set({ isLoading: true })
+    const steps = createProgressSteps('advance')
+    set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
+      // Start progress simulation in parallel with actual API call
+      const progressPromise = simulateProgress(set, steps)
       const state = await timelineApi.advance()
+      await progressPromise
       set({ currentMonth: state.currentMonth })
       // Invalidate all dashboard queries to force refetch with new month data
       invalidateDashboardQueries()
+      // Keep progress visible briefly to show completion
+      await new Promise(resolve => setTimeout(resolve, 800))
     } finally {
-      set({ isLoading: false })
+      set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
   },
 
   gotoMonth: async (month: number) => {
-    set({ isLoading: true })
+    const steps = createProgressSteps('goto')
+    set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
+      const progressPromise = simulateProgress(set, steps)
       const state = await timelineApi.goto(month)
+      await progressPromise
       set({ currentMonth: state.currentMonth })
       // Invalidate all dashboard queries to force refetch with new month data
       invalidateDashboardQueries()
+      await new Promise(resolve => setTimeout(resolve, 800))
     } finally {
-      set({ isLoading: false })
+      set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
   },
 
   resetTimeline: async () => {
-    set({ isLoading: true })
+    const steps = createProgressSteps('reset')
+    set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
+      const progressPromise = simulateProgress(set, steps)
       const state = await timelineApi.reset()
+      await progressPromise
       set({ currentMonth: state.currentMonth })
       // Invalidate all dashboard queries to force refetch with new month data
       invalidateDashboardQueries()
+      await new Promise(resolve => setTimeout(resolve, 800))
     } finally {
-      set({ isLoading: false })
+      set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
   }
 }))

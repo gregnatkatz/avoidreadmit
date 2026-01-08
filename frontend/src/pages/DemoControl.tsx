@@ -1,11 +1,62 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calendar, ChevronRight, RotateCcw, TrendingDown, DollarSign, Sparkles, Loader2, Brain, BarChart3 } from 'lucide-react'
+import { Calendar, ChevronRight, RotateCcw, TrendingDown, DollarSign, Sparkles, Loader2, Brain, BarChart3, CheckCircle2, Circle, Database } from 'lucide-react'
 import { useTimelineStore, getMonthLabel } from '../store/timeline'
 import { dashboardApi, patternsApi } from '../api/client'
 import { useState } from 'react'
 
+// Progress Modal Component
+function ProgressModal({ steps, show }: { steps: { id: string; label: string; status: 'pending' | 'running' | 'completed' }[]; show: boolean }) {
+  if (!show || steps.length === 0) return null
+  
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="glass-card p-8 max-w-md w-full mx-4 border border-cyan-500/30">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 rounded-xl bg-cyan-500/20">
+            <Database size={24} className="text-cyan-400 animate-pulse" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">Processing Data</h3>
+            <p className="text-sm text-gray-400">Please wait while we update the demo...</p>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          {steps.map((step) => (
+            <div key={step.id} className="flex items-center gap-3">
+              {step.status === 'completed' ? (
+                <CheckCircle2 size={20} className="text-green-400 flex-shrink-0" />
+              ) : step.status === 'running' ? (
+                <Loader2 size={20} className="text-cyan-400 animate-spin flex-shrink-0" />
+              ) : (
+                <Circle size={20} className="text-gray-600 flex-shrink-0" />
+              )}
+              <span className={`text-sm ${
+                step.status === 'completed' ? 'text-green-400' :
+                step.status === 'running' ? 'text-cyan-400 font-medium' :
+                'text-gray-500'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        
+        <div className="mt-6 h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div 
+            className="h-full cyan-gradient transition-all duration-300"
+            style={{ 
+              width: `${(steps.filter(s => s.status === 'completed').length / steps.length) * 100}%` 
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DemoControl() {
-  const { currentMonth, totalMonths, advanceMonth, gotoMonth, resetTimeline, isLoading } = useTimelineStore()
+  const { currentMonth, totalMonths, advanceMonth, gotoMonth, resetTimeline, isLoading, progressSteps, showProgress } = useTimelineStore()
   const [discoveryResult, setDiscoveryResult] = useState<any>(null)
   const queryClient = useQueryClient()
 
@@ -36,6 +87,9 @@ export default function DemoControl() {
 
   return (
     <div className="space-y-6">
+      {/* Progress Modal for month transitions */}
+      <ProgressModal steps={progressSteps} show={showProgress} />
+      
       <div>
         <h2 className="text-2xl font-bold text-white mb-1">Demo Control</h2>
         <p className="text-gray-400 text-sm">
