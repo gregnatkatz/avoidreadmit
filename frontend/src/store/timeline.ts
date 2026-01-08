@@ -156,7 +156,7 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   },
 
   advanceMonth: async () => {
-    const { currentMonth } = get()
+    const { currentMonth, fetchState } = get()
     const steps = createProgressSteps('advance', currentMonth)
     set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
@@ -169,12 +169,19 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
       invalidateDashboardQueries()
       // Keep progress visible briefly to show completion
       await new Promise(resolve => setTimeout(resolve, 800))
+    } catch (error) {
+      console.error('Error advancing month:', error)
+      // On error, fetch the actual state from the database to ensure sync
+      // The backend may have succeeded even if the response timed out
+      await fetchState()
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
   },
 
   gotoMonth: async (month: number) => {
+    const { fetchState } = get()
     const steps = createProgressSteps('goto')
     set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
@@ -185,12 +192,18 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
       // Invalidate all dashboard queries to force refetch with new month data
       invalidateDashboardQueries()
       await new Promise(resolve => setTimeout(resolve, 800))
+    } catch (error) {
+      console.error('Error going to month:', error)
+      // On error, fetch the actual state from the database to ensure sync
+      await fetchState()
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
   },
 
   resetTimeline: async () => {
+    const { fetchState } = get()
     const steps = createProgressSteps('reset')
     set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
@@ -201,6 +214,11 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
       // Invalidate all dashboard queries to force refetch with new month data
       invalidateDashboardQueries()
       await new Promise(resolve => setTimeout(resolve, 800))
+    } catch (error) {
+      console.error('Error resetting timeline:', error)
+      // On error, fetch the actual state from the database to ensure sync
+      await fetchState()
+      invalidateDashboardQueries()
     } finally {
       set({ isLoading: false, showProgress: false, progressSteps: [] })
     }
