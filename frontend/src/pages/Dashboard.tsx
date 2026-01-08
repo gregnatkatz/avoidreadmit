@@ -89,6 +89,12 @@ export default function Dashboard() {
 
   // Executive-focused stats (cost, ROI, readmission reduction)
   // Industry standards: CMS HRRP, Medicare national averages
+  // ROI calculation: (Savings - Implementation Cost) / Implementation Cost * 100
+  // Estimated implementation cost: $250K for DCG system
+  const implementationCost = 250000
+  const savings = summary?.cumulativeSavings || 0
+  const roi = savings > 0 ? Math.round(((savings - implementationCost) / implementationCost) * 100) : 0
+  
   const executiveStats = [
     {
       label: 'Readmission Rate',
@@ -108,7 +114,7 @@ export default function Dashboard() {
     },
     {
       label: 'ROI',
-      value: '847%',
+      value: `${roi}%`,
       change: 'Return on investment YTD',
       icon: TrendingDown,
       gradient: 'cyan-gradient',
