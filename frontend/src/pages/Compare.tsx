@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CheckCircle, XCircle, User, Heart, Home, Clock, Search, GitBranch, Sparkles, AlertTriangle, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
 import { patientsApi, Patient } from '../api/client'
 
@@ -161,6 +161,21 @@ function findSimilarCases(patient: Patient | null) {
 export default function Compare() {
   const [selectedPatientMrn, setSelectedPatientMrn] = useState<string>('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+    
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isDropdownOpen])
   
   const { data: patients, isLoading } = useQuery({
     queryKey: ['worklist'],
@@ -194,7 +209,7 @@ export default function Compare() {
           Select Patient to Analyze
         </h3>
         
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-left flex items-center justify-between hover:bg-white/10 transition-colors"
