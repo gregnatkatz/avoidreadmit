@@ -336,6 +336,7 @@ model DCG_SocialSnapshot {
   caregiver_availability        String?
   caregiver_stated_commitment   String?
   caregiver_condition_familiarity String?
+  caregiver_override            String?  // Clinician override of caregiver assessment: "adequate", "inadequate", "exceptional", null=no override
   patient_stated_preference     String?
   patient_concerns              String
   patient_fears                 String

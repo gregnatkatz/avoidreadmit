@@ -2,10 +2,38 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { trackTimelineAdvanced } from '../telemetry';
 import { generateOutcomes } from '../services/demo/outcomeGenerator';
-import { runIntegratedPatternDiscovery } from '../services/demo/integratedPatternDiscovery';
+import { runIntegratedPatternDiscovery, runEnhancedMultiModelDiscovery } from '../services/demo/integratedPatternDiscovery';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// Helper function to extract context fields from snapshots
+function extractContextFields(socialSnapshot: any, clinicalSnapshot: any): Record<string, any> {
+  const ctx: Record<string, any> = {}
+  
+  if (socialSnapshot) {
+    ctx.caregiver_relationship = socialSnapshot.caregiver_relationship
+    ctx.caregiver_medical_background = socialSnapshot.caregiver_medical_background
+    ctx.caregiver_proximity_minutes = socialSnapshot.caregiver_proximity_minutes
+    ctx.caregiver_availability = socialSnapshot.caregiver_availability
+    ctx.caregiver_age = socialSnapshot.caregiver_age
+    ctx.caregiver_health_status = socialSnapshot.caregiver_health_status
+    ctx.caregiver_override = socialSnapshot.caregiver_override
+    ctx.living_situation = socialSnapshot.living_situation
+    ctx.has_caregiver = socialSnapshot.has_caregiver
+    ctx.has_transportation = socialSnapshot.has_transportation
+    ctx.patient_stated_preference = socialSnapshot.patient_stated_preference
+  }
+  
+  if (clinicalSnapshot) {
+    ctx.readmit_count_12m = clinicalSnapshot.readmit_count_12m
+    ctx.adl_score = clinicalSnapshot.adl_score
+    ctx.los_at_decision = clinicalSnapshot.los_at_decision
+    ctx.age = clinicalSnapshot.age
+  }
+  
+  return ctx
+}
 
 router.get('/state', async (_req, res) => {
   try {
@@ -37,11 +65,64 @@ router.post('/advance', async (_req, res) => {
     console.log(`[Timeline] Generating outcomes for month ${newMonth}...`);
     const outcomeResults = await generateOutcomes(newMonth);
     
-    // 2. Run pattern discovery on accumulated data (only after month 4)
+    // 2. Run pattern discovery on accumulated data
+    // Month 4: Run candidate discovery (early signals with relaxed thresholds)
+    // Month 5+: Run full statistical discovery
+    // Month 6+: Run enhanced multi-model AI discovery with domain specialization
     let newPatterns: any[] = [];
-    if (newMonth >= 5) {
-      console.log(`[Timeline] Running pattern discovery for months 1-${newMonth}...`);
+    let multiModelResults: any = null;
+    
+    if (newMonth === 4) {
+      // Month 4: Candidate pattern discovery (early signals)
+      console.log(`[Timeline] Running CANDIDATE pattern discovery for month ${newMonth}...`);
+      console.log(`[Timeline] Looking for early pattern signals with relaxed thresholds...`);
       newPatterns = await runIntegratedPatternDiscovery(newMonth);
+    } else if (newMonth === 5) {
+      // Month 5: Full statistical discovery (emerging patterns)
+      console.log(`[Timeline] Running EMERGING pattern discovery for month ${newMonth}...`);
+      newPatterns = await runIntegratedPatternDiscovery(newMonth);
+    } else if (newMonth >= 6) {
+      // Month 6+: Enhanced multi-model AI discovery with domain specialization
+      // This uses 4 AI models in parallel with devil's advocate validation
+      console.log(`[Timeline] Running ENHANCED MULTI-MODEL pattern discovery for month ${newMonth}...`);
+      console.log(`[Timeline] This may take up to 2 minutes as we consult multiple AI models...`);
+      
+      // First run statistical discovery
+      newPatterns = await runIntegratedPatternDiscovery(newMonth);
+      
+      // Then run enhanced multi-model discovery (if we have enough data)
+      try {
+        const outcomes = await prisma.dCG_Outcome.findMany({
+          where: { data_month: { lte: newMonth } },
+          include: {
+            trace: {
+              include: {
+                social_snapshot: true,
+                clinical_snapshot: true
+              }
+            }
+          }
+        });
+        
+        if (outcomes.length >= 100) {
+          // Transform to decision context format
+          const decisions = outcomes.map(o => ({
+            id: o.trace_id,
+            outcome: o.outcome_success,
+            context: extractContextFields(o.trace.social_snapshot, o.trace.clinical_snapshot)
+          }));
+          
+          const baselineSuccessRate = decisions.filter(d => d.outcome).length / decisions.length;
+          
+          console.log(`[Timeline] Running multi-model AI analysis on ${decisions.length} decisions...`);
+          multiModelResults = await runEnhancedMultiModelDiscovery(decisions, baselineSuccessRate, newMonth);
+          
+          console.log(`[Timeline] Multi-model discovery found ${multiModelResults.patterns.length} additional AI-validated patterns`);
+        }
+      } catch (error) {
+        console.error('[Timeline] Enhanced multi-model discovery failed:', error);
+        // Continue with statistical patterns even if multi-model fails
+      }
     }
     
     // 3. Update demo state

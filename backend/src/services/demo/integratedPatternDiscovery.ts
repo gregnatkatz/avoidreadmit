@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { callAI } from '../ai/client'
+import { callAI, callParallelDomainAnalysis, runDevilsAdvocateValidation, DomainAnalysisResult, DevilsAdvocateResult } from '../ai/client'
 
 const prisma = new PrismaClient()
 
@@ -27,9 +27,46 @@ interface DecisionWithContext {
   context: Record<string, any>
 }
 
+// Thresholds for different pattern lifecycle stages
+// CANDIDATE: Early signals with relaxed thresholds (month 4)
+// EMERGING: Stronger signals with medium thresholds (month 5)
+// VALIDATED: Full validation with strict thresholds (month 6+)
+const THRESHOLDS = {
+  CANDIDATE: {
+    minSampleSize: 15,
+    minLift: 0.05,      // 5% improvement
+    maxPValue: 0.10,    // 90% confidence
+    minConfidenceScore: 0.4
+  },
+  EMERGING: {
+    minSampleSize: 20,
+    minLift: 0.07,      // 7% improvement
+    maxPValue: 0.07,    // 93% confidence
+    minConfidenceScore: 0.55
+  },
+  VALIDATED: {
+    minSampleSize: 25,
+    minLift: 0.10,      // 10% improvement
+    maxPValue: 0.05,    // 95% confidence
+    minConfidenceScore: 0.70
+  }
+}
+
+// Legacy constants for backward compatibility
 const MIN_SAMPLE_SIZE = 20
 const MIN_LIFT = 0.08  // 8% improvement over baseline
 const MAX_P_VALUE = 0.05
+
+// Enhanced candidate pattern with confidence scoring
+interface EnhancedCandidatePattern extends CandidatePattern {
+  confidenceScore: number
+  effectSize: number  // Cohen's h for proportions
+  oddsRatio: number
+  fisherPValue: number
+  bonferroniPValue: number
+  temporalConsistency?: number
+  crossValidationScore?: number
+}
 
 // Discretization rules for numeric fields
 const DISCRETIZATION: Record<string, { rules: { operator: string; value: number; label: string }[] }> = {
@@ -299,6 +336,7 @@ function extractContextFields(socialSnapshot: any, clinicalSnapshot: any): Recor
     ctx.caregiver_availability = socialSnapshot.caregiver_availability
     ctx.caregiver_age = socialSnapshot.caregiver_age
     ctx.caregiver_health_status = socialSnapshot.caregiver_health_status
+    ctx.caregiver_override = socialSnapshot.caregiver_override  // Clinician override of caregiver assessment
     ctx.living_situation = socialSnapshot.living_situation
     ctx.has_caregiver = socialSnapshot.has_caregiver
     ctx.has_transportation = socialSnapshot.has_transportation
@@ -332,6 +370,10 @@ function extractAllFeatures(decisions: DecisionWithContext[]): ContextFeature[] 
   }
   for (const value of ['full-time', 'part-time', 'weekends', 'limited']) {
     addFeature(featureSet, 'caregiver_availability', 'eq', value, value)
+  }
+  // Caregiver override - clinician assessment override
+  for (const value of ['adequate', 'inadequate', 'exceptional']) {
+    addFeature(featureSet, 'caregiver_override', 'eq', value, value)
   }
   for (const value of ['Lives alone', 'Lives with spouse', 'Lives with family', 'Assisted living']) {
     addFeature(featureSet, 'living_situation', 'eq', value, value)
@@ -580,6 +622,7 @@ function generatePatternName(pattern: CandidatePattern): string {
       caregiver_relationship: 'Caregiver',
       caregiver_age: 'Caregiver age',
       caregiver_health_status: 'Caregiver health',
+      caregiver_override: 'Caregiver override',
       living_situation: 'Living situation',
       has_caregiver: 'Has caregiver',
       has_transportation: 'Transportation',
@@ -773,7 +816,8 @@ export async function validateLLMHypotheses(
     }
     
     // Calculate actual statistics
-    const candidate = createCandidate(features, matching, baselineSuccessRate)
+    const successCount = matching.filter(d => d.outcome).length
+    const candidate = createCandidate(features, successCount, matching.length, baselineSuccessRate)
     
     if (candidate && candidate.lift >= MIN_LIFT && candidate.pValue <= MAX_P_VALUE) {
       console.log(`[LLM Validation] Validated: "${hypothesis.name}" - lift: ${(candidate.lift * 100).toFixed(1)}%`)
@@ -784,6 +828,221 @@ export async function validateLLMHypotheses(
   }
   
   return validatedPatterns
+}
+
+// Enhanced Multi-Model Pattern Discovery with Domain Specialization and Devil's Advocate Validation
+// This is the "heart" of the pattern discovery system - uses multiple AI models in parallel
+// with domain specialization and adversarial validation for robust pattern identification
+export async function runEnhancedMultiModelDiscovery(
+  decisions: DecisionWithContext[],
+  baselineSuccessRate: number,
+  upToMonth: number
+): Promise<{ patterns: any[]; analysisResults: DomainAnalysisResult[]; validationResults: DevilsAdvocateResult[] }> {
+  console.log(`[Enhanced Multi-Model Discovery] Starting domain-specialized analysis with ${decisions.length} decisions...`)
+  console.log(`[Enhanced Multi-Model Discovery] This may take up to 2 minutes as we consult multiple AI models...`)
+  
+  // 1. Prepare outcome data summary for AI analysis
+  const outcomeDataSummary = prepareOutcomeDataForAI(decisions, baselineSuccessRate)
+  
+  // 2. Run parallel domain-specialized AI analysis
+  // Each model focuses on their domain expertise:
+  // - GPT-5.2: Social/Caregiver factors
+  // - o3-2: Clinical factors (reasoning model)
+  // - DeepSeek-V3.2: Behavioral factors
+  // - grok-4-fast-reasoning: Cross-domain interactions
+  console.log(`[Enhanced Multi-Model Discovery] Phase 1: Parallel domain analysis (4 AI models)...`)
+  
+  const systemPromptTemplate = `You are analyzing healthcare discharge outcome data to identify patterns that predict successful patient transitions (no readmission within 30 days).
+
+Baseline success rate: ${(baselineSuccessRate * 100).toFixed(1)}%
+Total decisions analyzed: ${decisions.length}
+Data through month: ${upToMonth}
+
+Look for patterns where the success rate is significantly HIGHER or LOWER than baseline.
+Consider both positive patterns (predict success) and negative/risk patterns (predict failure).
+Be specific about the conditions and provide clinical reasoning.`
+
+  const consensusResult = await callParallelDomainAnalysis(outcomeDataSummary, systemPromptTemplate)
+  
+  console.log(`[Enhanced Multi-Model Discovery] Domain analysis complete:`)
+  for (const result of consensusResult.allResults) {
+    console.log(`  - ${result.provider} (${result.domain}): ${result.patterns.length} patterns proposed, ${result.success ? 'success' : 'failed'}`)
+  }
+  console.log(`[Enhanced Multi-Model Discovery] ${consensusResult.consensusPatterns.length} consensus patterns identified`)
+  
+  // 3. Run Devil's Advocate validation on consensus patterns
+  // This adversarial AI challenges each pattern looking for:
+  // - Confounding factors
+  // - Spurious correlations
+  // - Data bias
+  // - Clinical implausibility
+  console.log(`[Enhanced Multi-Model Discovery] Phase 2: Devil's Advocate validation...`)
+  
+  const validationResults = await runDevilsAdvocateValidation(
+    consensusResult.consensusPatterns,
+    outcomeDataSummary
+  )
+  
+  // 4. Filter patterns based on validation results
+  const acceptedPatterns = validationResults
+    .filter(r => r.recommendation !== 'reject')
+    .map(r => ({
+      ...r.pattern,
+      devilsAdvocateReview: {
+        challenges: r.challenges,
+        confoundingFactors: r.confoundingFactors,
+        clinicalPlausibility: r.clinicalPlausibility,
+        biasRisk: r.biasRisk,
+        recommendation: r.recommendation,
+        reasoning: r.reasoning
+      },
+      finalConfidence: r.adjustedConfidence
+    }))
+  
+  console.log(`[Enhanced Multi-Model Discovery] Validation complete:`)
+  console.log(`  - Accepted: ${validationResults.filter(r => r.recommendation === 'accept').length}`)
+  console.log(`  - Needs review: ${validationResults.filter(r => r.recommendation === 'review').length}`)
+  console.log(`  - Rejected: ${validationResults.filter(r => r.recommendation === 'reject').length}`)
+  
+  // 5. Statistically validate accepted patterns against actual data
+  console.log(`[Enhanced Multi-Model Discovery] Phase 3: Statistical validation...`)
+  
+  const statisticallyValidatedPatterns: any[] = []
+  
+  for (const pattern of acceptedPatterns) {
+    const conditions = pattern.conditions || []
+    if (conditions.length === 0) continue
+    
+    // Convert to ContextFeatures
+    const features: ContextFeature[] = conditions.map((c: any) => ({
+      field: c.field,
+      operator: c.operator as 'eq' | 'lte' | 'gte' | 'lt' | 'gt',
+      value: c.value,
+      displayValue: `${c.operator} ${c.value}`
+    }))
+    
+    // Find matching decisions
+    const matching = decisions.filter(d => 
+      features.every(f => matchesFeature(d.context, f))
+    )
+    
+    if (matching.length < THRESHOLDS.CANDIDATE.minSampleSize) {
+      console.log(`[Statistical Validation] Pattern "${pattern.name}" has insufficient sample (${matching.length})`)
+      continue
+    }
+    
+    // Calculate statistics
+    const successCount = matching.filter(d => d.outcome).length
+    const successRate = successCount / matching.length
+    const lift = successRate - baselineSuccessRate
+    
+    // Apply threshold based on month (lifecycle stage)
+    const threshold = upToMonth <= 4 ? THRESHOLDS.CANDIDATE : 
+                      upToMonth <= 5 ? THRESHOLDS.EMERGING : 
+                      THRESHOLDS.VALIDATED
+    
+    if (Math.abs(lift) >= threshold.minLift) {
+      const candidate = createCandidate(features, successCount, matching.length, baselineSuccessRate)
+      
+      if (candidate.pValue <= threshold.maxPValue) {
+        statisticallyValidatedPatterns.push({
+          ...pattern,
+          features,
+          statisticalValidation: {
+            sampleSize: matching.length,
+            successCount,
+            successRate,
+            lift,
+            pValue: candidate.pValue,
+            confidenceInterval: candidate.confidenceInterval
+          },
+          lifecycleStage: upToMonth <= 4 ? 'CANDIDATE' : upToMonth <= 5 ? 'EMERGING' : 'VALIDATED'
+        })
+        
+        console.log(`[Statistical Validation] Validated: "${pattern.name}" - lift: ${(lift * 100).toFixed(1)}%, p: ${candidate.pValue.toFixed(3)}, stage: ${upToMonth <= 4 ? 'CANDIDATE' : upToMonth <= 5 ? 'EMERGING' : 'VALIDATED'}`)
+      }
+    }
+  }
+  
+  console.log(`[Enhanced Multi-Model Discovery] Complete: ${statisticallyValidatedPatterns.length} patterns passed all validation`)
+  console.log(`[Enhanced Multi-Model Discovery] Total time: ${(consensusResult.totalDurationMs / 1000).toFixed(1)}s`)
+  
+  return {
+    patterns: statisticallyValidatedPatterns,
+    analysisResults: consensusResult.allResults,
+    validationResults
+  }
+}
+
+// Prepare outcome data summary for AI analysis
+function prepareOutcomeDataForAI(decisions: DecisionWithContext[], baselineSuccessRate: number): string {
+  const successes = decisions.filter(d => d.outcome)
+  const failures = decisions.filter(d => !d.outcome)
+  
+  // Sample for summary (limit to avoid token limits)
+  const sampleSize = Math.min(50, decisions.length)
+  const sampledSuccesses = successes.slice(0, Math.floor(sampleSize * baselineSuccessRate))
+  const sampledFailures = failures.slice(0, Math.floor(sampleSize * (1 - baselineSuccessRate)))
+  
+  // Calculate field distributions
+  const fieldStats: Record<string, any> = {}
+  
+  const categoricalFields = ['caregiver_relationship', 'living_situation', 'caregiver_availability', 
+                            'caregiver_health_status', 'patient_stated_preference', 'caregiver_override']
+  const booleanFields = ['caregiver_medical_background', 'has_transportation', 'has_caregiver']
+  const numericFields = ['caregiver_proximity_minutes', 'caregiver_age', 'adl_score', 'readmit_count_12m', 'los_at_decision']
+  
+  for (const field of categoricalFields) {
+    const successDist: Record<string, number> = {}
+    const failureDist: Record<string, number> = {}
+    
+    for (const d of successes) {
+      const val = d.context[field]
+      if (val) successDist[val] = (successDist[val] || 0) + 1
+    }
+    for (const d of failures) {
+      const val = d.context[field]
+      if (val) failureDist[val] = (failureDist[val] || 0) + 1
+    }
+    
+    fieldStats[field] = { successDist, failureDist }
+  }
+  
+  for (const field of booleanFields) {
+    const successTrue = successes.filter(d => d.context[field] === true).length
+    const failureTrue = failures.filter(d => d.context[field] === true).length
+    
+    fieldStats[field] = {
+      successTrueRate: successes.length > 0 ? (successTrue / successes.length * 100).toFixed(1) + '%' : 'N/A',
+      failureTrueRate: failures.length > 0 ? (failureTrue / failures.length * 100).toFixed(1) + '%' : 'N/A'
+    }
+  }
+  
+  for (const field of numericFields) {
+    const successVals = successes.map(d => d.context[field]).filter(v => typeof v === 'number')
+    const failureVals = failures.map(d => d.context[field]).filter(v => typeof v === 'number')
+    
+    fieldStats[field] = {
+      successAvg: successVals.length > 0 ? (successVals.reduce((a, b) => a + b, 0) / successVals.length).toFixed(1) : 'N/A',
+      failureAvg: failureVals.length > 0 ? (failureVals.reduce((a, b) => a + b, 0) / failureVals.length).toFixed(1) : 'N/A'
+    }
+  }
+  
+  return `OUTCOME DATA SUMMARY
+====================
+Total decisions: ${decisions.length}
+Successes: ${successes.length} (${(successes.length / decisions.length * 100).toFixed(1)}%)
+Failures: ${failures.length} (${(failures.length / decisions.length * 100).toFixed(1)}%)
+Baseline success rate: ${(baselineSuccessRate * 100).toFixed(1)}%
+
+FIELD DISTRIBUTIONS (Success vs Failure):
+${JSON.stringify(fieldStats, null, 2)}
+
+SAMPLE SUCCESSFUL CASES:
+${JSON.stringify(sampledSuccesses.slice(0, 5).map(d => d.context), null, 2)}
+
+SAMPLE FAILED CASES:
+${JSON.stringify(sampledFailures.slice(0, 5).map(d => d.context), null, 2)}`
 }
 
 export { CandidatePattern, ContextFeature, DecisionWithContext }

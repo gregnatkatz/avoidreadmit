@@ -6,9 +6,13 @@ import { Loader2, CheckCircle2, Circle, Database } from 'lucide-react'
 
 // Global Progress Modal Component - shows during month transitions
 function ProgressModal() {
-  const { progressSteps, showProgress } = useTimelineStore()
+  const { progressSteps, showProgress, currentMonth } = useTimelineStore()
   
   if (!showProgress || progressSteps.length === 0) return null
+  
+  // Check if we're doing multi-model AI analysis (month 6+)
+  const isMultiModelAnalysis = currentMonth >= 5 // Will be advancing to month 6+
+  const hasAISteps = progressSteps.some(s => s.label.includes('AI') || s.label.includes('GPT') || s.label.includes('model'))
   
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -19,7 +23,11 @@ function ProgressModal() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">Processing Data</h3>
-            <p className="text-sm text-gray-400">Please wait while we update the demo...</p>
+            <p className="text-sm text-gray-400">
+              {isMultiModelAnalysis || hasAISteps 
+                ? 'This may take up to 2 minutes as we consult multiple AI models...'
+                : 'Please wait while we update the demo...'}
+            </p>
           </div>
         </div>
         
