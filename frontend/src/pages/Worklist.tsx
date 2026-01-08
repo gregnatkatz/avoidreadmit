@@ -322,6 +322,11 @@ export default function Worklist() {
       // Call real AI Discharge Readiness Agent
       const response = await aiApi.analyzeDischargeReadiness(patient)
       
+      // Validate response structure - throw error if invalid to trigger onError handler
+      if (!response || !response.analysis) {
+        throw new Error('Invalid response from discharge analysis API')
+      }
+      
       // Transform AI response to our format with verbose details
       const aiAnalysis = response.analysis
       
