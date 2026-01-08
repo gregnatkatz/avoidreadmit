@@ -6,6 +6,8 @@ A research project exploring how context graphs can capture the "invisible conte
 
 *This is Greg Katz's personal project for learning about context graphs and AI agents, not a commercial product.*
 
+**All patient data, names, medical records, and statistics in this demo are entirely fictitious and generated for demonstration purposes only. No real patient information is used.**
+
 ![Dashboard Executive View](docs/images/dashboard.png)
 
 ---
