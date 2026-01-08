@@ -34,6 +34,7 @@ import timelineRoutes from './routes/timeline';
 import contextRoutes from './routes/context';
 import patternsRoutes from './routes/patterns';
 import aiRoutes from './routes/ai';
+import addendumRoutes from './routes/addendum';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,6 +49,7 @@ app.use('/api/timeline', timelineRoutes);
 app.use('/api/context', contextRoutes);
 app.use('/api/patterns', patternsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/addendum', addendumRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
