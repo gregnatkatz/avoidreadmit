@@ -56,7 +56,7 @@ const MONTH_LABELS = [
   'December 2025'
 ]
 
-const createProgressSteps = (action: 'advance' | 'goto' | 'reset'): ProgressStep[] => {
+const createProgressSteps = (action: 'advance' | 'goto' | 'reset', currentMonth?: number): ProgressStep[] => {
   if (action === 'reset') {
     return [
       { id: 'reset', label: 'Resetting demo to Month 1...', status: 'pending' },
@@ -65,11 +65,41 @@ const createProgressSteps = (action: 'advance' | 'goto' | 'reset'): ProgressStep
       { id: 'complete', label: 'Reset complete!', status: 'pending' }
     ]
   }
+  
+  // For month 6+, show enhanced multi-model AI analysis steps
+  const targetMonth = (currentMonth || 1) + 1
+  if (targetMonth >= 6) {
+    return [
+      { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
+      { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
+      { id: 'statistical', label: 'Running statistical pattern analysis...', status: 'pending' },
+      { id: 'ai-social', label: 'GPT-5.2: Analyzing social/caregiver patterns...', status: 'pending' },
+      { id: 'ai-clinical', label: 'o3-2: Analyzing clinical patterns (reasoning)...', status: 'pending' },
+      { id: 'ai-behavioral', label: 'DeepSeek-V3.2: Analyzing behavioral patterns...', status: 'pending' },
+      { id: 'ai-cross', label: 'grok-4: Finding cross-domain interactions...', status: 'pending' },
+      { id: 'devils-advocate', label: 'Devil\'s Advocate: Validating patterns...', status: 'pending' },
+      { id: 'consensus', label: 'Building multi-model consensus...', status: 'pending' },
+      { id: 'complete', label: 'Enhanced AI analysis complete!', status: 'pending' }
+    ]
+  }
+  
+  // For month 4-5, show candidate/emerging pattern discovery
+  if (targetMonth >= 4) {
+    return [
+      { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
+      { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
+      { id: 'analyze', label: 'Analyzing patterns in data...', status: 'pending' },
+      { id: 'discover', label: targetMonth === 4 ? 'Discovering candidate patterns...' : 'Discovering emerging patterns...', status: 'pending' },
+      { id: 'validate', label: 'Validating pattern significance...', status: 'pending' },
+      { id: 'complete', label: 'Pattern discovery complete!', status: 'pending' }
+    ]
+  }
+  
+  // For month 1-3, basic progress
   return [
     { id: 'seed', label: 'Seeding new patient data...', status: 'pending' },
     { id: 'outcomes', label: 'Generating decision outcomes...', status: 'pending' },
     { id: 'analyze', label: 'Analyzing patterns in data...', status: 'pending' },
-    { id: 'discover', label: 'Running pattern discovery...', status: 'pending' },
     { id: 'complete', label: 'Month transition complete!', status: 'pending' }
   ]
 }
@@ -112,7 +142,8 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   },
 
   advanceMonth: async () => {
-    const steps = createProgressSteps('advance')
+    const { currentMonth } = get()
+    const steps = createProgressSteps('advance', currentMonth)
     set({ isLoading: true, showProgress: true, progressSteps: steps })
     try {
       // Start progress simulation in parallel with actual API call
