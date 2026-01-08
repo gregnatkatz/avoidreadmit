@@ -7,6 +7,7 @@ import { seedEnsocareData } from './ensocare';
 import { seedBulkDecisions } from './bulk-data';
 import { seedMetrics } from './metrics';
 import { seedDemoPatients } from './demo-patients';
+import { seedAddendumData } from './addendum';
 
 const prisma = new PrismaClient();
 
@@ -15,6 +16,14 @@ async function main() {
 
   // Clear existing data
   console.log('Clearing existing data...');
+  // Clear addendum tables first (due to foreign keys)
+  await prisma.patternAlert.deleteMany();
+  await prisma.patternPerformance.deleteMany();
+  await prisma.decisionPatternSnapshot.deleteMany();
+  await prisma.patternSnapshot.deleteMany();
+  await prisma.ambientContext.deleteMany();
+  await prisma.policyVersion.deleteMany();
+  // Clear existing tables
   await prisma.demo_Change.deleteMany();
   await prisma.dCG_ContextMatch.deleteMany();
   await prisma.dCG_ContextPattern.deleteMany();
@@ -79,6 +88,10 @@ async function main() {
   // Seed monthly metrics
   console.log('Seeding monthly metrics...');
   await seedMetrics(prisma);
+
+  // Seed addendum data (policy versions, pattern metadata, ambient context, performance, alerts)
+  console.log('Seeding addendum data...');
+  await seedAddendumData(prisma);
 
   console.log('Seed complete!');
 }
