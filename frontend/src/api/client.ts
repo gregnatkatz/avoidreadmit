@@ -112,10 +112,28 @@ export const patternsApi = {
   getPattern: (id: string) => api.get(`/patterns/${id}`).then(r => r.data)
 }
 
+export interface DischargeReadinessAnalysis {
+  success: boolean
+  analysis: {
+    overallScore: number
+    recommendation: 'approve' | 'hold' | 'needs_review'
+    riskFactors: { title: string; patternId: string; reason: string; evidence: string; recommendation: string }[]
+    protectiveFactors: { title: string; patternId: string; reason: string; evidence: string }[]
+    requirements: { name: string; status: 'met' | 'not_met' | 'pending'; standard: string; patternId: string | null }[]
+    suggestedDisposition: string
+    confidence: number
+    reasoning: string
+  }
+  patient: string
+  timestamp: string
+}
+
 export const aiApi = {
   getStatus: () => api.get<AIStatus>('/ai/status').then(r => r.data),
   runAnalysis: (patientMrn?: string, transcriptId?: string) => 
     api.post('/ai/analyze', { patientMrn, transcriptId }).then(r => r.data),
+  analyzeDischargeReadiness: (patient: Patient) => 
+    api.post<DischargeReadinessAnalysis>('/ai/discharge-readiness', { patient }).then(r => r.data),
   analyzeReadmission: async (decisionId: string) => {
     // Simulate AI readmission analysis - in production this would call the backend
     await new Promise(resolve => setTimeout(resolve, 2000))

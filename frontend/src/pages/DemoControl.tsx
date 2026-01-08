@@ -9,13 +9,13 @@ export default function DemoControl() {
   const { data: trend } = useQuery({
     queryKey: ['readmission-trend'],
     queryFn: dashboardApi.getReadmissionTrend,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const { data: savings } = useQuery({
     queryKey: ['cost-savings'],
     queryFn: dashboardApi.getCostSavings,
-    refetchInterval: 5000
+    refetchInterval: 600000
   })
 
   const months = Array.from({ length: totalMonths }, (_, i) => i + 1)
