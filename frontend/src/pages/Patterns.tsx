@@ -49,6 +49,72 @@ const discoveryIcons: Record<string, { icon: typeof Beaker; label: string }> = {
   manual: { icon: CheckCircle, label: 'Manual Entry' },
 }
 
+// Helper to format field names nicely
+const formatFieldName = (field: string): string => {
+  const fieldLabels: Record<string, string> = {
+    caregiver_medical_background: 'Medical Background',
+    caregiver_proximity_minutes: 'Caregiver Proximity',
+    caregiver_relationship: 'Caregiver',
+    caregiver_age: 'Caregiver Age',
+    living_situation: 'Living Situation',
+    readmit_count_12m: 'Prior Readmissions',
+    adl_score: 'ADL Score',
+    cognitive_status: 'Cognitive Status',
+    primary_diagnosis: 'Diagnosis',
+    length_of_stay: 'Length of Stay',
+  }
+  return fieldLabels[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Helper to format operator and value nicely
+const formatCriteria = (criteria: any): string => {
+  if (typeof criteria === 'string') return criteria
+  
+  const { field, operator, value } = criteria
+  const fieldName = formatFieldName(field)
+  
+  // Format based on operator type
+  const opLabels: Record<string, string> = {
+    eq: '',
+    lte: '≤',
+    gte: '≥',
+    lt: '<',
+    gt: '>',
+    ne: '≠',
+  }
+  
+  // Special formatting for certain fields
+  if (field === 'caregiver_medical_background') {
+    return value === true || value === 'true' ? 'Medical Background: Yes' : 'Medical Background: No'
+  }
+  if (field === 'caregiver_proximity_minutes') {
+    return `Proximity ${opLabels[operator] || operator} ${value} min`
+  }
+  if (field === 'readmit_count_12m') {
+    return `Prior Readmissions: ${value}`
+  }
+  if (field === 'adl_score') {
+    const level = value <= 12 ? '(low)' : value <= 18 ? '(moderate)' : '(high)'
+    return `ADL ${opLabels[operator] || operator} ${value} ${level}`
+  }
+  if (field === 'caregiver_age') {
+    return `Caregiver Age ${opLabels[operator] || operator} ${value}`
+  }
+  if (field === 'caregiver_relationship') {
+    return `Caregiver: ${value}`
+  }
+  if (field === 'living_situation') {
+    return `Living: ${value}`
+  }
+  
+  // Default formatting - for eq operator, just show field: value
+  const opSymbol = opLabels[operator] || operator
+  if (operator === 'eq' || !opSymbol) {
+    return `${fieldName}: ${value}`
+  }
+  return `${fieldName} ${opSymbol} ${value}`
+}
+
 export default function Patterns() {
   const [showMetadata, setShowMetadata] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'validated' | 'candidates'>('validated')
@@ -352,11 +418,11 @@ export default function Patterns() {
 
                         <div className="space-y-3 mb-4">
                           <div className="flex flex-wrap gap-2">
-                            {Array.isArray(pattern.contextCriteria) && pattern.contextCriteria.map((criteria: any, i: number) => (
-                              <span key={i} className="px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs">
-                                {typeof criteria === 'string' ? criteria : `${criteria.field}: ${criteria.operator} ${criteria.value}`}
-                              </span>
-                            ))}
+                                                        {Array.isArray(pattern.contextCriteria) && pattern.contextCriteria.map((criteria: any, i: number) => (
+                                                          <span key={i} className="px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs">
+                                                            {formatCriteria(criteria)}
+                                                          </span>
+                                                        ))}
                           </div>
                         </div>
 
