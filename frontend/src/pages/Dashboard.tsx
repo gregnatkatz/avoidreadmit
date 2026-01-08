@@ -13,19 +13,19 @@ export default function Dashboard() {
   const [persona, setPersona] = useState<PersonaType>('executive')
   
   const { data: summary } = useQuery({
-    queryKey: ['dashboard-summary', currentMonth],
+    queryKey: ['dashboard-summary'],
     queryFn: dashboardApi.getSummary,
     refetchInterval: 600000
   })
 
   const { data: trend } = useQuery({
-    queryKey: ['readmission-trend', currentMonth],
+    queryKey: ['readmission-trend'],
     queryFn: dashboardApi.getReadmissionTrend,
     refetchInterval: 600000
   })
 
     const { data: impact } = useQuery({
-      queryKey: ['context-impact', currentMonth],
+      queryKey: ['context-impact'],
       queryFn: dashboardApi.getContextImpact,
       refetchInterval: 600000
     })
